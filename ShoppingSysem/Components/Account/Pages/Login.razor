@@ -42,6 +42,10 @@
                 <div>
                     <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
                 </div>
+                <div class="text-center mt-3">
+                    New buyer?
+                    <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Create a customer account</a>
+                </div>
             </EditForm>
         </section>
     </div>
