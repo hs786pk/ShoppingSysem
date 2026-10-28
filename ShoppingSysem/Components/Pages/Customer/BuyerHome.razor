@@ -1,6 +1,6 @@
 ﻿@page "/buyer"
 @rendermode InteractiveServer
-@attribute [Microsoft.AspNetCore.Authorization.Authorize]
+@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Customer,Admin")]
 
 @using System.Security.Claims
 @using Microsoft.EntityFrameworkCore

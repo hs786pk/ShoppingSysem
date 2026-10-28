@@ -28,6 +28,13 @@
         <input @bind="newItemName" placeholder="Item Name" class="form-control mb-2" />
         <input @bind="newItemPrice" placeholder="Price" class="form-control mb-2" />
         <input @bind="newItemStock" placeholder="Stock" class="form-control mb-2" />
+        <input @bind="newItemCategory" placeholder="Category (e.g. Shoes, Electronics)" list="category-list" class="form-control mb-2" />
+        <datalist id="category-list">
+            @foreach (var c in categorySuggestions)
+            {
+                <option value="@c"></option>
+            }
+        </datalist>
         <button class="btn btn-primary" @onclick="AddItem">Add Item</button>
     </div>
 
@@ -43,6 +50,7 @@
                 <th>Name</th>
                 <th>Price</th>
                 <th>Stock</th>
+                <th>Category</th>
                 <th></th>
             </tr>
         </thead>
@@ -57,6 +65,9 @@
                     </td>
                     <td>
                         <input @bind="item.Stock" class="form-control" style="width:80px;" />
+                    </td>
+                    <td>
+                        <input @bind="item.Category" list="category-list" class="form-control" style="width:160px;" />
                     </td>
                     <td>
                         <div style="display:flex; gap:0.5rem;">

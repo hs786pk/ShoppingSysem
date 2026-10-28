@@ -12,13 +12,28 @@ namespace ShoppingSysem.Components.Pages.Admin
         string newItemName = "";
         string newItemPrice = "";
         string newItemStock = "";
+        string newItemCategory = "";
         string? errorMessage;
+
+        // existing categories, offered as suggestions in the Category inputs
+        List<string> categorySuggestions = new();
+
+        async Task LoadCategorySuggestions()
+        {
+            categorySuggestions = await DbContext.Items
+                .Where(i => i.Category != null && i.Category != "")
+                .Select(i => i.Category!)
+                .Distinct()
+                .OrderBy(c => c)
+                .ToListAsync();
+        }
 
         int? pendingDeleteItemId = null;
 
         protected override async Task OnInitializedAsync()
         {
             shops = await DbContext.Shops.ToListAsync();
+            await LoadCategorySuggestions();
         }
 
         async Task LoadItems()
@@ -61,6 +76,7 @@ namespace ShoppingSysem.Components.Pages.Admin
                 Name = newItemName.Trim(),
                 Price = price,
                 Stock = stock,
+                Category = string.IsNullOrWhiteSpace(newItemCategory) ? null : newItemCategory.Trim(),
                 ShopId = selectedShopId
             };
 
@@ -70,13 +86,21 @@ namespace ShoppingSysem.Components.Pages.Admin
             newItemName = "";
             newItemPrice = "";
             newItemStock = "";
+            newItemCategory = "";
 
             await LoadItems();
+            await LoadCategorySuggestions();
         }
 
         async Task UpdateItem(Item item)
         {
+            if (string.IsNullOrWhiteSpace(item.Category))
+                item.Category = null;
+            else
+                item.Category = item.Category.Trim();
+
             await DbContext.SaveChangesAsync();
+            await LoadCategorySuggestions();
         }
 
         void RequestDeleteItem(int itemId)

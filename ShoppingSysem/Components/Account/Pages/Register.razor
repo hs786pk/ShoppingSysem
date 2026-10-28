@@ -87,6 +87,9 @@
 
         Logger.LogInformation("User created a new account with password.");
 
+        // Everyone who registers here is a buyer. Shopkeepers are created by the admin.
+        await UserManager.AddToRoleAsync(user, "Customer");
+
         var userId = await UserManager.GetUserIdAsync(user);
         var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
