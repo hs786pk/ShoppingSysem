@@ -16,6 +16,7 @@ namespace ShoppingSysem.Data
         public DbSet<Item> Items { get; set; }
         public DbSet<Sale> Sales { get; set; }
         public DbSet<ShopAssignment> ShopAssignments { get; set; }
+        public DbSet<CustomerInterest> CustomerInterests => Set<CustomerInterest>();
 
         protected override void OnModelCreating(ModelBuilder builder)
         {
