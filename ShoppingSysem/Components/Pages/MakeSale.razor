@@ -1,0 +1,54 @@
+﻿@page "/shopkeeper/sale"
+@attribute [Authorize(Roles = "Shopkeeper")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ShoppingSysem.Data
+@using ShoppingSysem.Models
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@rendermode InteractiveServer
+
+<PageTitle>Make a Sale</PageTitle>
+
+<h3>Make a Sale</h3>
+
+<div class="mb-3" style="max-width:300px;">
+    <label>Shop:</label>
+    <select class="form-control" @bind="selectedShopId" @bind:after="LoadItems">
+        <option value="0">-- Select your shop --</option>
+        @foreach (var shop in myShops)
+        {
+            <option value="@shop.Id">@shop.Name</option>
+        }
+    </select>
+</div>
+
+@if (selectedShopId != 0)
+{
+    <div class="mb-3" style="max-width:300px;">
+        <label>Item:</label>
+        <select class="form-control" @bind="selectedItemId">
+            <option value="0">-- Select item --</option>
+            @foreach (var item in items)
+            {
+                <option value="@item.Id">@item.Name (Rs. @item.Price, Stock: @item.Stock)</option>
+            }
+        </select>
+
+        <label class="mt-2">Quantity:</label>
+        <input @bind="quantity" class="form-control" />
+
+        <button class="btn btn-primary mt-2" @onclick="ConfirmSale">Confirm Sale</button>
+    </div>
+}
+
+@if (errorMessage is not null)
+{
+    <p style="color:red">@errorMessage</p>
+}
+@if (successMessage is not null)
+{
+    <p style="color:green">@successMessage</p>
+}

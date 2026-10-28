@@ -1,0 +1,65 @@
+﻿@page "/admin/shops"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ShoppingSysem.Data
+@using ShoppingSysem.Models
+@inject ApplicationDbContext DbContext
+@rendermode InteractiveServer
+
+<PageTitle>Manage Shops</PageTitle>
+
+<h3>Manage Shops</h3>
+
+<div class="mb-3">
+    <input @bind="newShopName" placeholder="Shop Name" class="form-control mb-2" style="max-width:300px;" />
+    <input @bind="newShopLocation" placeholder="Location" class="form-control mb-2" style="max-width:300px;" />
+    <button class="btn btn-primary" @onclick="AddShop">Add Shop</button>
+</div>
+
+@if (errorMessage is not null)
+{
+    <p style="color:red">@errorMessage</p>
+}
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Id</th>
+            <th>Name</th>
+            <th>Location</th>
+            <th></th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var shop in shops)
+        {
+            <tr>
+                <td>@shop.Id</td>
+                <td>@shop.Name</td>
+                <td>@shop.Location</td>
+                <td>
+                    @if (pendingDeleteId == shop.Id)
+                    {
+                        <div class="confirm-delete">
+                            <span>Delete?</span>
+                            <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDelete(shop)">Yes</button>
+                            <button class="btn btn-sm btn-secondary" @onclick="CancelDelete">Cancel</button>
+                        </div>
+                    }
+                    else
+                    {
+                        <button class="icon-btn-danger" title="Delete shop" @onclick="() => RequestDelete(shop.Id)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 6h18" />
+                                <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                                <path d="M10 11v6M14 11v6" />
+                            </svg>
+                        </button>
+                    }
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

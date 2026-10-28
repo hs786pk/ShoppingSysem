@@ -1,0 +1,67 @@
+﻿@page "/admin/shopkeepers"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.EntityFrameworkCore
+@using ShoppingSysem.Data
+@using ShoppingSysem.Models
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@rendermode InteractiveServer
+
+<PageTitle>Manage Shopkeepers</PageTitle>
+
+<h3>Create Shopkeeper Account</h3>
+
+<div class="mb-3" style="max-width:400px;">
+    <input @bind="newEmail" placeholder="Email" class="form-control mb-2" />
+    <input @bind="newPassword" type="password" placeholder="Password" class="form-control mb-2" />
+
+    <label>Assign Shops:</label>
+    <select multiple class="form-control mb-2" @onchange="OnShopSelectionChanged" size="5">
+        @foreach (var shop in allShops)
+        {
+            <option value="@shop.Id">@shop.Name</option>
+        }
+    </select>
+
+    <button class="btn btn-primary" @onclick="CreateShopkeeper">Create Shopkeeper</button>
+</div>
+
+@if (errorMessage is not null)
+{
+    <p style="color:red">@errorMessage</p>
+}
+@if (successMessage is not null)
+{
+    <p style="color:green">@successMessage</p>
+}
+
+<h3>Existing Shopkeepers</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>Email</th>
+            <th>Assigned Shops</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var sk in shopkeepers)
+        {
+            <tr>
+                <td>@sk.Email</td>
+                <td>
+                    <div style="display:flex; flex-wrap:wrap; gap:0.4rem;">
+                        @foreach (var assignment in GetAssignments(sk.Id))
+                        {
+                            <span class="shop-tag">
+                                @GetShopName(assignment.ShopId)
+                                <button class="tag-remove-btn" title="Unassign" @onclick="() => RemoveAssignment(assignment)">×</button>
+                            </span>
+                        }
+                    </div>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>

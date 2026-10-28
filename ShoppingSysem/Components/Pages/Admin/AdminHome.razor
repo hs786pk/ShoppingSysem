@@ -1,0 +1,14 @@
+﻿@page "/admin"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Admin Dashboard</PageTitle>
+
+<h3>Admin Dashboard</h3>
+<p>Welcome! From here you can manage your shops, items, and shopkeeper accounts.</p>
+
+<div class="d-flex flex-column" style="max-width:300px; gap: 10px;">
+    <a class="btn btn-outline-primary" href="/admin/shops">Manage Shops</a>
+    <a class="btn btn-outline-primary" href="/admin/items">Manage Items & Prices</a>
+    <a class="btn btn-outline-primary" href="/admin/shopkeepers">Manage Shopkeepers</a>
+</div>

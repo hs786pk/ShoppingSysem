@@ -1,0 +1,91 @@
+﻿<div class="sidebar" id="app-sidebar">
+    <div class="top-row">
+        <a class="navbar-brand" href="">ShoppingSystem</a>
+        <button class="sidebar-toggle" onclick="toggleSidebar()" title="Toggle menu" type="button">
+            <svg id="sidebar-arrow" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M15 6l-6 6 6 6" />
+            </svg>
+        </button>
+    </div>
+
+
+    <div class="nav-scrollable">
+        <nav class="flex-column">
+
+            <AuthorizeView Roles="Admin">
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/shops">
+                        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l1-5h16l1 5M4 9v10a1 1 0 001 1h14a1 1 0 001-1V9M4 9h16M9 21v-6h6v6" /></svg></span>
+                        <span>Manage Shops</span>
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/items">
+                        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="7" width="18" height="14" rx="1" /><path d="M8 7V5a4 4 0 018 0v2" /></svg></span>
+                        <span>Manage Items</span>
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="admin/shopkeepers">
+                        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3" /><path d="M2 21v-1a6 6 0 016-6h2a6 6 0 016 6v1" /><circle cx="18" cy="8" r="2.5" /><path d="M16.5 14.2A5 5 0 0122 19v1" /></svg></span>
+                        <span>Manage Shopkeepers</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+
+            <AuthorizeView Roles="Shopkeeper">
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="shopkeeper/sale">
+                        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="20" r="1" /><circle cx="18" cy="20" r="1" /><path d="M2 3h2l2.6 12.4a2 2 0 002 1.6h8.8a2 2 0 002-1.6L21 7H6" /></svg></span>
+                        <span>Make a Sale</span>
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="shopkeeper/history">
+                        <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 3" /></svg></span>
+                        <span>Sales History</span>
+                    </NavLink>
+                </div>
+            </AuthorizeView>
+
+            <AuthorizeView>
+                <Authorized>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="Account/Manage">
+                            <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4" /><path d="M4 21v-1a8 8 0 0116 0v1" /></svg></span>
+                            <span>@context.User.Identity?.Name</span>
+                        </NavLink>
+                    </div>
+                    <div class="nav-item px-3">
+                        <form action="/Account/Logout" method="post">
+                            <AntiforgeryToken />
+                            <input type="hidden" name="ReturnUrl" value="" />
+                            <button type="submit" class="nav-link btn btn-link">
+                                <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></svg></span>
+                                <span>Logout</span>
+                            </button>
+                        </form>
+                    </div>
+                </Authorized>
+                <NotAuthorized>
+                    <div class="nav-item px-3">
+                        <NavLink class="nav-link" href="Account/Login">
+                            <span class="nav-icon"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 012 2v14a2 2 0 01-2 2h-4" /><path d="M10 17l5-5-5-5" /><path d="M15 12H3" /></svg></span>
+                            <span>Login</span>
+                        </NavLink>
+                    </div>
+                </NotAuthorized>
+            </AuthorizeView>
+
+        </nav>
+    </div>
+</div>
+
+@code {
+    private bool collapsed = false;
+
+    void ToggleSidebar()
+    {
+        collapsed = !collapsed;
+    }
+}

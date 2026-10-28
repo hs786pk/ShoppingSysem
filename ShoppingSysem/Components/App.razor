@@ -1,0 +1,64 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <base href="/" />
+    <ResourcePreloader />
+    <link rel="stylesheet" href="@Assets["lib/bootstrap/dist/css/bootstrap.min.css"]" />
+    <link rel="stylesheet" href="@Assets["app.css"]" />
+    <link rel="stylesheet" href="@Assets["ShoppingSysem.styles.css"]" />
+    <ImportMap />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <HeadOutlet @rendermode="PageRenderMode" />
+</head>
+
+<body>
+    <Routes @rendermode="PageRenderMode" />
+    <ReconnectModal />
+    <script src="@Assets["_framework/blazor.web.js"]"></script>
+    <script src="@Assets["Components/Account/Shared/PasskeySubmit.razor.js"]" type="module"></script>
+</body>
+
+</html>
+
+@code {
+    [CascadingParameter]
+    private HttpContext HttpContext { get; set; } = default!;
+
+    private IComponentRenderMode? PageRenderMode =>
+        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
+}
+<script>
+    function isMobile() {
+    return window.innerWidth <= 768;
+    }
+
+    function toggleSidebar() {
+    const sidebar = document.getElementById('app-sidebar');
+    const arrow = document.getElementById('sidebar-arrow');
+
+    if (isMobile()) {
+    sidebar.classList.toggle('mobile-open');
+    const isOpen = sidebar.classList.contains('mobile-open');
+    arrow.style.transform = isOpen ? 'rotate(90deg)' : 'rotate(0deg)';
+    } else {
+    sidebar.classList.toggle('collapsed');
+    const isCollapsed = sidebar.classList.contains('collapsed');
+    arrow.style.transform = isCollapsed ? 'rotate(180deg)' : 'rotate(0deg)';
+    localStorage.setItem('sidebarCollapsed', isCollapsed);
+    }
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+    if (!isMobile()) {
+    const wasCollapsed = localStorage.getItem('sidebarCollapsed') === 'true';
+    if (wasCollapsed) {
+    document.getElementById('app-sidebar')?.classList.add('collapsed');
+    const arrow = document.getElementById('sidebar-arrow');
+    if (arrow) arrow.style.transform = 'rotate(180deg)';
+    }
+    }
+    });
+</script>

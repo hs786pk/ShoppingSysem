@@ -1,0 +1,50 @@
+﻿@page "/shopkeeper/history"
+@attribute [Authorize(Roles = "Shopkeeper")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ShoppingSysem.Data
+@using ShoppingSysem.Models
+@inject ApplicationDbContext DbContext
+@inject UserManager<ApplicationUser> UserManager
+@rendermode InteractiveServer
+
+<PageTitle>Sales History</PageTitle>
+
+<h3>My Sales History</h3>
+
+<div class="summary-cards">
+    <div class="summary-card">
+        <span class="summary-label">Total Items Sold</span>
+        <span class="summary-value">@totalItemsSold</span>
+    </div>
+    <div class="summary-card">
+        <span class="summary-label">Total Revenue</span>
+        <span class="summary-value price">Rs. @totalRevenue.ToString("N2")</span>
+    </div>
+</div>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Date</th>
+            <th>Shop</th>
+            <th>Item</th>
+            <th>Quantity</th>
+            <th>Total</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var sale in sales)
+        {
+            <tr>
+                <td>@sale.SaleDate.ToString("g")</td>
+                <td>@sale.Shop.Name</td>
+                <td>@sale.Item.Name</td>
+                <td>@sale.QuantitySold</td>
+                <td>Rs. @sale.TotalPrice</td>
+            </tr>
+        }
+    </tbody>
+</table>

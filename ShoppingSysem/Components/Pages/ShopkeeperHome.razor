@@ -1,0 +1,13 @@
+﻿@page "/shopkeeper"
+@attribute [Authorize(Roles = "Shopkeeper")]
+@using Microsoft.AspNetCore.Authorization
+
+<PageTitle>Shopkeeper Dashboard</PageTitle>
+
+<h3>Shopkeeper Dashboard</h3>
+<p>Welcome! From here you can record sales and view your sales history.</p>
+
+<div class="d-flex flex-column" style="max-width:300px; gap: 10px;">
+    <a class="btn btn-outline-primary" href="/shopkeeper/sale">Make a Sale</a>
+    <a class="btn btn-outline-primary" href="/shopkeeper/history">Sales History</a>
+</div>

@@ -1,0 +1,83 @@
+## WORKSPACE EXECUTIVE SUMMARY (YAML)
+# Generated: 2026-10-28T08:00:40.2918731+05:00
+# Root: D:\ShoppingSysem
+Architecture:
+  Type: Backend (C#/.NET)
+  Scale: 36 relevant source files
+  Components: 0
+  Controllers: 0
+  Models: 4
+  Services: 0
+---
+- File: ShoppingSysem\ShoppingSysem.csproj
+  Preview: "<Project Sdk='Microsoft.NET.Sdk.Web'>  <PropertyGroup>   <TargetFramework>net10.0</TargetFramework>   <Nullable>enable</Nullable>   <ImplicitUsings>en..."
+- File: Analyze-ShoppingSysem.ps1
+  Preview: " $ErrorActionPreference = 'Stop' # Your actual project $Root = 'D:\ShoppingSysem\ShoppingSysem' $Model = 'qwen2.5-coder:3b' $ApiUrl = 'http://localhos..."
+- File: ShoppingSysem-Analysis.md
+  Preview: "# ShoppingSysem - Local AI Project Analysis Generated: 10/28/2026 03:04:05 Project folder: D:\ShoppingSysem\ShoppingSysem Model: qwen2.5-coder:3b Solu..."
+- File: ShoppingSysem.slnx
+  Preview: "<Solution>  <Project Path='ShoppingSysem/ShoppingSysem.csproj' /> </Solution> "
+- File: ShoppingSysem\appsettings.Development.json
+  Preview: "{  'Logging': {   'LogLevel': {    'Default': 'Information',    'Microsoft.AspNetCore': 'Warning'   }  } } "
+- File: ShoppingSysem\appsettings.json
+  Preview: "{  'ConnectionStrings': {   'DefaultConnection': 'Data Source=(localdb)\\MSSQLLocalDB;Integrated Security=True;Persist Security Info=False;Pooling=Fal..."
+- File: ShoppingSysem\Program.cs
+  Preview: "using Microsoft.AspNetCore.Components.Authorization; using Microsoft.AspNetCore.Identity; using Microsoft.EntityFrameworkCore; using ShoppingSysem.Com..."
+- File: ShoppingSysem\Data\ApplicationDbContext.cs
+  Preview: "using Microsoft.AspNetCore.Identity; using Microsoft.AspNetCore.Identity.EntityFrameworkCore; using Microsoft.EntityFrameworkCore; using ShoppingSysem..."
+- File: ShoppingSysem\Data\ApplicationUser.cs
+  Preview: "using Microsoft.AspNetCore.Identity; namespace ShoppingSysem.Data {   // Add profile data for application users by adding properties to the Applicatio..."
+- File: ShoppingSysem\Models\Item.cs
+  Preview: "using System.ComponentModel.DataAnnotations; namespace ShoppingSysem.Models {   public class Item   {     [Key]     public int Id { get; set; }     [R..."
+- File: ShoppingSysem\Models\Sale.cs
+  Preview: "using System.ComponentModel.DataAnnotations; using ShoppingSysem.Data; namespace ShoppingSysem.Models {   public class Sale   {     [Key]     public i..."
+- File: ShoppingSysem\Models\Shop.cs
+  Preview: "using System.ComponentModel.DataAnnotations; namespace ShoppingSysem.Models {   public class Shop   {     [Key]     public int Id { get; set; }     [R..."
+- File: ShoppingSysem\Models\ShopAssignment.cs
+  Preview: "using System.ComponentModel.DataAnnotations; using ShoppingSysem.Data; namespace ShoppingSysem.Models {   public class ShopAssignment   {     [Key]   ..."
+- File: ShoppingSysem\Properties\launchSettings.json
+  Preview: "{  '$schema': 'https://json.schemastore.org/launchsettings.json',   'profiles': {    'http': {     'commandName': 'Project',     'dotnetRunMessages': ..."
+- File: ShoppingSysem\Properties\serviceDependencies.json
+  Preview: "{  'dependencies': {   'mssql1': {    'type': 'mssql',    'connectionId': 'ConnectionStrings:DefaultConnection'   }  } }"
+- File: ShoppingSysem\Properties\serviceDependencies.local.json
+  Preview: "{  'dependencies': {   'mssql1': {    'type': 'mssql.local',    'connectionId': 'ConnectionStrings:DefaultConnection'   }  } }"
+- File: ShoppingSysem\Components\Account\IdentityComponentsEndpointRouteBuilderExtensions.cs
+  Preview: "using Microsoft.AspNetCore.Antiforgery; using Microsoft.AspNetCore.Authentication; using Microsoft.AspNetCore.Components.Authorization; using Microsof..."
+- File: ShoppingSysem\Components\Account\IdentityNoOpEmailSender.cs
+  Preview: "using Microsoft.AspNetCore.Identity; using Microsoft.AspNetCore.Identity.UI.Services; using ShoppingSysem.Data; namespace ShoppingSysem.Components.Acc..."
+- File: ShoppingSysem\Components\Account\IdentityRedirectManager.cs
+  Preview: "using Microsoft.AspNetCore.Components; using Microsoft.AspNetCore.Identity; using ShoppingSysem.Data; namespace ShoppingSysem.Components.Account {   i..."
+- File: ShoppingSysem\Components\Account\IdentityRevalidatingAuthenticationStateProvider.cs
+  Preview: "using Microsoft.AspNetCore.Components.Authorization; using Microsoft.AspNetCore.Components.Server; using Microsoft.AspNetCore.Identity; using Microsof..."
+- File: ShoppingSysem\Components\Account\PasskeyInputModel.cs
+  Preview: "namespace ShoppingSysem.Components.Account {   public class PasskeyInputModel   {     public string? CredentialJson { get; set; }     public string? E..."
+- File: ShoppingSysem\Components\Account\PasskeyOperation.cs
+  Preview: "namespace ShoppingSysem.Components.Account {   public enum PasskeyOperation   {     Create = 0,     Request = 1,   } } "
+- File: ShoppingSysem\Components\Layout\ReconnectModal.razor.js
+  Preview: "// Set up event handlers const reconnectModal = document.getElementById('components-reconnect-modal'); reconnectModal.addEventListener('components-rec..."
+- File: ShoppingSysem\Components\Pages\MakeSale.razor.cs
+  Preview: "using Microsoft.AspNetCore.Components; using Microsoft.AspNetCore.Components.Authorization; using Microsoft.EntityFrameworkCore; using ShoppingSysem.M..."
+- File: ShoppingSysem\Components\Pages\SalesHistory.razor.cs
+  Preview: "using Microsoft.AspNetCore.Components; using Microsoft.AspNetCore.Components.Authorization; using Microsoft.EntityFrameworkCore; using ShoppingSysem.M..."
+- File: ShoppingSysem\Data\Migrations\00000000000000_CreateIdentitySchema.cs
+  Preview: "using Microsoft.EntityFrameworkCore.Migrations; using System; #nullable disable namespace ShoppingSysem.Migrations {   /// <inheritdoc />   public par..."
+- File: ShoppingSysem\Data\Migrations\00000000000000_CreateIdentitySchema.Designer.cs
+  Preview: "// <auto-generated /> using Microsoft.EntityFrameworkCore; using Microsoft.EntityFrameworkCore.Infrastructure; using Microsoft.EntityFrameworkCore.Met..."
+- File: ShoppingSysem\Data\Migrations\20260815042232_InitialIdentitySchema.cs
+  Preview: "using Microsoft.EntityFrameworkCore.Migrations; #nullable disable namespace ShoppingSysem.Migrations {   /// <inheritdoc />   public partial class Ini..."
+- File: ShoppingSysem\Data\Migrations\20260815042232_InitialIdentitySchema.Designer.cs
+  Preview: "// <auto-generated /> using System; using Microsoft.EntityFrameworkCore; using Microsoft.EntityFrameworkCore.Infrastructure; using Microsoft.EntityFra..."
+- File: ShoppingSysem\Data\Migrations\20260815045913_AddShopManagementTables.cs
+  Preview: "using System; using Microsoft.EntityFrameworkCore.Migrations; #nullable disable namespace ShoppingSysem.Migrations {   /// <inheritdoc />   public par..."
+- File: ShoppingSysem\Data\Migrations\20260815045913_AddShopManagementTables.Designer.cs
+  Preview: "// <auto-generated /> using System; using Microsoft.EntityFrameworkCore; using Microsoft.EntityFrameworkCore.Infrastructure; using Microsoft.EntityFra..."
+- File: ShoppingSysem\Data\Migrations\ApplicationDbContextModelSnapshot.cs
+  Preview: "// <auto-generated /> using System; using Microsoft.EntityFrameworkCore; using Microsoft.EntityFrameworkCore.Infrastructure; using Microsoft.EntityFra..."
+- File: ShoppingSysem\Components\Account\Shared\PasskeySubmit.razor.js
+  Preview: "const browserSupportsPasskeys =   typeof navigator.credentials !== 'undefined' &&   typeof window.PublicKeyCredential !== 'undefined' &&   typeof wind..."
+- File: ShoppingSysem\Components\Pages\Admin\ManageItems.razor.cs
+  Preview: "using Microsoft.EntityFrameworkCore; using ShoppingSysem.Models; namespace ShoppingSysem.Components.Pages.Admin {   public partial class ManageItems  ..."
+- File: ShoppingSysem\Components\Pages\Admin\ManageShopkeepers.razor.cs
+  Preview: "using Microsoft.AspNetCore.Components; using Microsoft.AspNetCore.Components.Web; using Microsoft.AspNetCore.Identity; using Microsoft.EntityFramework..."
+- File: ShoppingSysem\Components\Pages\Admin\ManageShops.razor.cs
+  Preview: "using Microsoft.EntityFrameworkCore; using ShoppingSysem.Models; namespace ShoppingSysem.Components.Pages.Admin {   public partial class ManageShops  ..."

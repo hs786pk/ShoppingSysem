@@ -1,0 +1,87 @@
+﻿@page "/admin/items"
+@attribute [Authorize(Roles = "Admin")]
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.EntityFrameworkCore
+@using ShoppingSysem.Data
+@using ShoppingSysem.Models
+@inject ApplicationDbContext DbContext
+@rendermode InteractiveServer
+
+<PageTitle>Manage Items</PageTitle>
+
+<h3>Manage Items</h3>
+
+<div class="mb-3" style="max-width:300px;">
+    <label>Select Shop:</label>
+    <select class="form-control" @bind="selectedShopId" @bind:after="LoadItems">
+        <option value="0">-- Select a shop --</option>
+        @foreach (var shop in shops)
+        {
+            <option value="@shop.Id">@shop.Name</option>
+        }
+    </select>
+</div>
+
+@if (selectedShopId != 0)
+{
+    <div class="mb-3" style="max-width:400px;">
+        <input @bind="newItemName" placeholder="Item Name" class="form-control mb-2" />
+        <input @bind="newItemPrice" placeholder="Price" class="form-control mb-2" />
+        <input @bind="newItemStock" placeholder="Stock" class="form-control mb-2" />
+        <button class="btn btn-primary" @onclick="AddItem">Add Item</button>
+    </div>
+
+    @if (errorMessage is not null)
+    {
+        <p style="color:red">@errorMessage</p>
+    }
+
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Id</th>
+                <th>Name</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in items)
+            {
+                <tr>
+                    <td>@item.Id</td>
+                    <td>@item.Name</td>
+                    <td>
+                        <input @bind="item.Price" class="form-control" style="width:100px;" />
+                    </td>
+                    <td>
+                        <input @bind="item.Stock" class="form-control" style="width:80px;" />
+                    </td>
+                    <td>
+                        <div style="display:flex; gap:0.5rem;">
+                            <button class="btn btn-sm btn-secondary" @onclick="() => UpdateItem(item)">Save</button>
+
+                            @if (pendingDeleteItemId == item.Id)
+                            {
+                                <button class="btn btn-sm btn-danger" @onclick="() => ConfirmDeleteItem(item)">Yes, delete</button>
+                                <button class="btn btn-sm btn-secondary" @onclick="CancelDeleteItem">Cancel</button>
+                            }
+                            else
+                            {
+                                <button class="icon-btn-danger" title="Delete item" @onclick="() => RequestDeleteItem(item.Id)">
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                        <path d="M3 6h18" />
+                                        <path d="M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2" />
+                                        <path d="M19 6l-1 14a2 2 0 01-2 2H8a2 2 0 01-2-2L5 6" />
+                                        <path d="M10 11v6M14 11v6" />
+                                    </svg>
+                                </button>
+                            }
+                        </div>
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
