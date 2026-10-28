@@ -10,11 +10,15 @@
 
 @inject AuthenticationStateProvider AuthProvider
 @inject IRecommendationService Recommender
+@inject IOrderService Orders
 @inject ApplicationDbContext Db
 
 <PageTitle>Shop</PageTitle>
 
-<h2 class="mb-3">Welcome, shopper</h2>
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2 class="mb-0">Welcome, shopper</h2>
+    <a class="btn btn-outline-primary btn-sm" href="/buyer/orders">My orders</a>
+</div>
 
 <div class="row g-2 mb-3">
     <div class="col-md-6">
@@ -33,7 +37,7 @@
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <div class="alert alert-success py-2">@message</div>
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success") py-2">@message</div>
 }
 
 @if (recommended.Count > 0 && string.IsNullOrWhiteSpace(search) && string.IsNullOrEmpty(selectedCategory))
@@ -48,12 +52,19 @@
                         <span class="badge bg-primary mb-2">@r.Reason</span>
                         <h5 class="card-title">@r.Item.Name</h5>
                         <p class="text-muted mb-1">@(r.Item.Category ?? "General")</p>
-                        <p class="fw-bold">Rs @r.Item.Price.ToString("N0")</p>
+                        <p class="fw-bold mb-1">Rs @r.Item.Price.ToString("N0")</p>
+                        <p class="mb-0 @(r.Item.Stock > 0 ? "text-success" : "text-danger")">
+                            @(r.Item.Stock > 0 ? $"{r.Item.Stock} in stock" : "Out of stock")
+                        </p>
                     </div>
                     <div class="card-footer d-flex gap-2">
                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => Act(r.Item, InteractionType.View)">View</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => Act(r.Item, InteractionType.Wishlist)">Save</button>
-                        <button class="btn btn-sm btn-success ms-auto" @onclick="() => Act(r.Item, InteractionType.Purchase)">Buy</button>
+                        <button class="btn btn-sm btn-success ms-auto"
+                                disabled="@(busy || r.Item.Stock <= 0)"
+                                @onclick="() => Buy(r.Item)">
+                            Buy
+                        </button>
                     </div>
                 </div>
             </div>
@@ -76,12 +87,19 @@ else
                     <div class="card-body">
                         <h5 class="card-title">@item.Name</h5>
                         <p class="text-muted mb-1">@(item.Category ?? "General")</p>
-                        <p class="fw-bold">Rs @item.Price.ToString("N0")</p>
+                        <p class="fw-bold mb-1">Rs @item.Price.ToString("N0")</p>
+                        <p class="mb-0 @(item.Stock > 0 ? "text-success" : "text-danger")">
+                            @(item.Stock > 0 ? $"{item.Stock} in stock" : "Out of stock")
+                        </p>
                     </div>
                     <div class="card-footer d-flex gap-2">
                         <button class="btn btn-sm btn-outline-secondary" @onclick="() => Act(item, InteractionType.View)">View</button>
                         <button class="btn btn-sm btn-outline-danger" @onclick="() => Act(item, InteractionType.Wishlist)">Save</button>
-                        <button class="btn btn-sm btn-success ms-auto" @onclick="() => Act(item, InteractionType.Purchase)">Buy</button>
+                        <button class="btn btn-sm btn-success ms-auto"
+                                disabled="@(busy || item.Stock <= 0)"
+                                @onclick="() => Buy(item)">
+                            Buy
+                        </button>
                     </div>
                 </div>
             </div>
@@ -94,6 +112,8 @@ else
     private string search = string.Empty;
     private string selectedCategory = string.Empty;
     private string? message;
+    private bool messageIsError;
+    private bool busy;
 
     private List<Item> allItems = new();
     private List<string> categories = new();
@@ -113,14 +133,18 @@ else
         var state = await AuthProvider.GetAuthenticationStateAsync();
         userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
 
+        await ReloadItems();
+        await LoadRecommendations();
+    }
+
+    private async Task ReloadItems()
+    {
         allItems = await Db.Items.AsNoTracking().OrderBy(i => i.Name).ToListAsync();
         categories = allItems
             .Select(i => i.Category ?? "General")
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .OrderBy(c => c)
             .ToList();
-
-        await LoadRecommendations();
     }
 
     private async Task LoadRecommendations()
@@ -134,14 +158,33 @@ else
 
         await Recommender.RecordAsync(userId, item.Id, type);
 
+        messageIsError = false;
         message = type switch
         {
-            InteractionType.Purchase => $"You bought {item.Name}.",
             InteractionType.Wishlist => $"{item.Name} saved.",
             _ => $"Viewing {item.Name}."
         };
 
-        // refresh so the "Recommended for you" list reacts immediately
         await LoadRecommendations();
+    }
+
+    private async Task Buy(Item item)
+    {
+        if (busy || string.IsNullOrEmpty(userId) || item.Stock <= 0) return;
+
+        busy = true;
+        try
+        {
+            var result = await Orders.PlaceAsync(userId, item.Id, 1);
+            message = result.Message;
+            messageIsError = !result.Ok;
+
+            await ReloadItems();
+            await LoadRecommendations();
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 }

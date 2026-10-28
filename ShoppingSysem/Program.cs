@@ -42,6 +42,9 @@ builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSe
 builder.Services.AddScoped<ShoppingSysem.Services.IRecommendationService,
                            ShoppingSysem.Services.RecommendationService>();
 
+builder.Services.AddScoped<ShoppingSysem.Services.IOrderService,
+                           ShoppingSysem.Services.OrderService>();
+
 var app = builder.Build();
 // --- Seed roles ---
 using (var scope = app.Services.CreateScope())

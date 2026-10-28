@@ -18,6 +18,7 @@ namespace ShoppingSysem.Data
         public DbSet<ShopAssignment> ShopAssignments { get; set; }
         public DbSet<CustomerInterest> CustomerInterests => Set<CustomerInterest>();
 
+        public DbSet<Order> Orders { get; set; }
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
@@ -48,6 +49,30 @@ namespace ShoppingSysem.Data
             builder.Entity<ShopAssignment>()
                 .HasOne(sa => sa.Shop)
                 .WithMany(s => s.ShopAssignments)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Order>()
+    .Property(o => o.UnitPrice)
+    .HasPrecision(18, 2);
+
+            builder.Entity<Order>()
+                .Property(o => o.TotalPrice)
+                .HasPrecision(18, 2);
+
+            builder.Entity<Order>()
+                .HasOne(o => o.Item)
+                .WithMany()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Order>()
+                .HasOne(o => o.Shop)
+                .WithMany()
+                .OnDelete(DeleteBehavior.Restrict);
+
+            builder.Entity<Order>()
+                .HasOne(o => o.Customer)
+                .WithMany()
+                .HasForeignKey(o => o.CustomerId)
                 .OnDelete(DeleteBehavior.Restrict);
         }
     }
