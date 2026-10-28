@@ -11,6 +11,9 @@ public interface IOrderService
     Task<OrderResult> PlaceAsync(string customerId, int itemId, int quantity = 1);
     Task<List<Order>> GetForCustomerAsync(string customerId);
     Task<List<Order>> GetForShopkeeperAsync(string shopkeeperId);
+    Task<OrderResult> FulfillAsync(string shopkeeperId, int orderId);
+    Task<OrderResult> CancelByShopkeeperAsync(string shopkeeperId, int orderId);
+    Task<OrderResult> CancelByCustomerAsync(string customerId, int orderId);
 }
 
 public class OrderService : IOrderService
@@ -102,5 +105,57 @@ public class OrderService : IOrderService
             .Include(o => o.Customer)
             .OrderByDescending(o => o.OrderedAt)
             .ToListAsync();
+    }
+    public Task<OrderResult> FulfillAsync(string shopkeeperId, int orderId) =>
+    SetStatusAsync(shopkeeperId, null, orderId, OrderStatus.Fulfilled);
+
+    public Task<OrderResult> CancelByShopkeeperAsync(string shopkeeperId, int orderId) =>
+        SetStatusAsync(shopkeeperId, null, orderId, OrderStatus.Cancelled);
+
+    public Task<OrderResult> CancelByCustomerAsync(string customerId, int orderId) =>
+        SetStatusAsync(null, customerId, orderId, OrderStatus.Cancelled);
+
+    private async Task<OrderResult> SetStatusAsync(
+        string? shopkeeperId, string? customerId, int orderId, OrderStatus next)
+    {
+        await using var tx = await _db.Database.BeginTransactionAsync();
+
+        var order = await _db.Orders.AsNoTracking().FirstOrDefaultAsync(o => o.Id == orderId);
+        if (order is null)
+            return new(false, "Order not found.");
+
+        if (customerId is not null && order.CustomerId != customerId)
+            return new(false, "That order is not yours.");
+
+        if (shopkeeperId is not null)
+        {
+            var allowed = await _db.ShopAssignments.AsNoTracking()
+                .AnyAsync(a => a.ShopkeeperId == shopkeeperId && a.ShopId == order.ShopId);
+            if (!allowed)
+                return new(false, "That order is not for your shop.");
+        }
+
+        if (order.Status != OrderStatus.Placed)
+            return new(false, $"This order is already {order.Status}.");
+
+        // Only one caller can move a Placed order.
+        var updated = await _db.Orders
+            .Where(o => o.Id == orderId && o.Status == OrderStatus.Placed)
+            .ExecuteUpdateAsync(s => s.SetProperty(o => o.Status, next));
+
+        if (updated == 0)
+            return new(false, "This order was just updated.");
+
+        if (next == OrderStatus.Cancelled)
+        {
+            await _db.Items
+                .Where(i => i.Id == order.ItemId)
+                .ExecuteUpdateAsync(s => s.SetProperty(i => i.Stock, i => i.Stock + order.Quantity));
+        }
+
+        await tx.CommitAsync();
+
+        var verb = next == OrderStatus.Fulfilled ? "fulfilled" : "cancelled";
+        return new(true, $"Order #{order.Id} {verb}. Stock was {(next == OrderStatus.Cancelled ? "restored" : "left as is")}.");
     }
 }

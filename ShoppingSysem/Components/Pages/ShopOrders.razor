@@ -13,6 +13,11 @@
 
 <h3>Customer orders</h3>
 
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success") py-2">@message</div>
+}
+
 @if (orders.Count == 0)
 {
     <p class="text-muted">No customer orders for your shops yet.</p>
@@ -28,6 +33,8 @@ else
                 <th>Item</th>
                 <th>Qty</th>
                 <th>Total</th>
+                <th>Status</th>
+                <th></th>
             </tr>
         </thead>
         <tbody>
@@ -40,6 +47,14 @@ else
                     <td>@order.Item.Name</td>
                     <td>@order.Quantity</td>
                     <td>Rs. @order.TotalPrice.ToString("N0")</td>
+                    <td>@order.Status</td>
+                    <td>
+                        @if (order.Status == OrderStatus.Placed)
+                        {
+                            <button class="btn btn-sm btn-success me-1" disabled="@busy" @onclick="() => Fulfill(order.Id)">Fulfill</button>
+                            <button class="btn btn-sm btn-outline-danger" disabled="@busy" @onclick="() => Cancel(order.Id)">Cancel</button>
+                        }
+                    </td>
                 </tr>
             }
         </tbody>
@@ -47,14 +62,45 @@ else
 }
 
 @code {
+    private string userId = string.Empty;
+    private string? message;
+    private bool messageIsError;
+    private bool busy;
     private List<Order> orders = new();
 
     protected override async Task OnInitializedAsync()
     {
         var state = await AuthProvider.GetAuthenticationStateAsync();
-        var userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-        if (string.IsNullOrEmpty(userId)) return;
+        userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
+        await Reload();
+    }
 
+    private async Task Reload()
+    {
+        if (string.IsNullOrEmpty(userId)) return;
         orders = await Orders.GetForShopkeeperAsync(userId);
+    }
+
+    private async Task Fulfill(int orderId) => await Act(orderId, fulfill: true);
+
+    private async Task Cancel(int orderId) => await Act(orderId, fulfill: false);
+
+    private async Task Act(int orderId, bool fulfill)
+    {
+        if (busy || string.IsNullOrEmpty(userId)) return;
+        busy = true;
+        try
+        {
+            var result = fulfill
+                ? await Orders.FulfillAsync(userId, orderId)
+                : await Orders.CancelByShopkeeperAsync(userId, orderId);
+            message = result.Message;
+            messageIsError = !result.Ok;
+            await Reload();
+        }
+        finally
+        {
+            busy = false;
+        }
     }
 }
