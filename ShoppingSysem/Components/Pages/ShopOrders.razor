@@ -1,4 +1,4 @@
-﻿@page "/shopkeeper/orders"
+@page "/shopkeeper/orders"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Shopkeeper")]
 
@@ -11,11 +11,15 @@
 
 <PageTitle>Customer orders</PageTitle>
 
-<h3>Customer orders</h3>
+<header class="mast">
+    <p class="kicker">From the floor</p>
+    <h1>Customer orders.</h1>
+    <p class="dek">Fulfill leaves stock as it is. Cancel puts the quantity back.</p>
+</header>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <div class="alert @(messageIsError ? "alert-danger" : "alert-success") py-2">@message</div>
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
 }
 
 @if (orders.Count == 0)
@@ -47,7 +51,7 @@ else
                     <td>@order.Item.Name</td>
                     <td>@order.Quantity</td>
                     <td>Rs. @order.TotalPrice.ToString("N0")</td>
-                    <td>@order.Status</td>
+                    <td><span class="status status-@order.Status.ToString().ToLowerInvariant()">@order.Status</span></td>
                     <td>
                         @if (order.Status == OrderStatus.Placed)
                         {

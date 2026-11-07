@@ -1,4 +1,4 @@
-﻿@page "/buyer/orders"
+@page "/buyer/orders"
 @rendermode InteractiveServer
 @attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Customer,Admin")]
 
@@ -11,11 +11,15 @@
 
 <PageTitle>My orders</PageTitle>
 
-<h3>My orders</h3>
+<header class="mast">
+    <p class="kicker">Your slips</p>
+    <h1>What you bought.</h1>
+    <p class="dek">A placed order can still be cancelled. Fulfilled ones stay on the books.</p>
+</header>
 
 @if (!string.IsNullOrEmpty(message))
 {
-    <div class="alert @(messageIsError ? "alert-danger" : "alert-success") py-2">@message</div>
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
 }
 
 @if (orders.Count == 0)
@@ -45,11 +49,11 @@ else
                     <td>@order.Item.Name</td>
                     <td>@order.Quantity</td>
                     <td>Rs. @order.TotalPrice.ToString("N0")</td>
-                    <td>@order.Status</td>
+                    <td><span class="status status-@order.Status.ToString().ToLowerInvariant()">@order.Status</span></td>
                     <td>
                         @if (order.Status == OrderStatus.Placed)
                         {
-                            <button class="btn btn-sm btn-outline-danger" disabled="@busy" @onclick="() => Cancel(order.Id)">Cancel</button>
+                            <button class="btn btn-outline-danger" disabled="@busy" @onclick="() => Cancel(order.Id)">Cancel</button>
                         }
                     </td>
                 </tr>
