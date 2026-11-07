@@ -1,14 +1,29 @@
-﻿@page "/shopkeeper"
+@page "/shopkeeper"
 @attribute [Authorize(Roles = "Shopkeeper")]
 @using Microsoft.AspNetCore.Authorization
 
 <PageTitle>Shopkeeper Dashboard</PageTitle>
 
-<h3>Shopkeeper Dashboard</h3>
-<p>Welcome! From here you can record sales and view your sales history.</p>
+<header class="mast">
+    <p class="kicker">Shopkeeper</p>
+    <h1>Today's till.</h1>
+    <p class="dek">A counter sale is not a customer order. The two books stay separate.</p>
+</header>
 
-<div class="d-flex flex-column" style="max-width:300px; gap: 10px;">
-    <a class="btn btn-outline-primary" href="/shopkeeper/sale">Make a Sale</a>
-    <a class="btn btn-outline-primary" href="/shopkeeper/history">Sales History</a>
-    <a class="btn btn-outline-primary" href="/shopkeeper/orders">Customer orders</a>
-</div>
+<nav class="ledger">
+    <a class="ledger-row" href="/shopkeeper/sale">
+        <span class="kicker">01</span>
+        <span><strong>Make a sale</strong><em>Walk-in quantity off your own stock.</em></span>
+        <span class="go">Open</span>
+    </a>
+    <a class="ledger-row" href="/shopkeeper/history">
+        <span class="kicker">02</span>
+        <span><strong>Sales history</strong><em>What you rang up, and the revenue.</em></span>
+        <span class="go">Open</span>
+    </a>
+    <a class="ledger-row" href="/shopkeeper/orders">
+        <span class="kicker">03</span>
+        <span><strong>Customer orders</strong><em>Fulfill, or cancel and return the stock.</em></span>
+        <span class="go">Open</span>
+    </a>
+</nav>

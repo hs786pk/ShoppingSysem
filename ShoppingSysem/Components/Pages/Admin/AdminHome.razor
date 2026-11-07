@@ -1,14 +1,29 @@
-﻿@page "/admin"
+@page "/admin"
 @attribute [Authorize(Roles = "Admin")]
 @using Microsoft.AspNetCore.Authorization
 
 <PageTitle>Admin Dashboard</PageTitle>
 
-<h3>Admin Dashboard</h3>
-<p>Welcome! From here you can manage your shops, items, and shopkeeper accounts.</p>
+<header class="mast">
+    <p class="kicker">Admin</p>
+    <h1>The house books.</h1>
+    <p class="dek">Shops, the goods on their shelves, and who is allowed to sell them.</p>
+</header>
 
-<div class="d-flex flex-column" style="max-width:300px; gap: 10px;">
-    <a class="btn btn-outline-primary" href="/admin/shops">Manage Shops</a>
-    <a class="btn btn-outline-primary" href="/admin/items">Manage Items & Prices</a>
-    <a class="btn btn-outline-primary" href="/admin/shopkeepers">Manage Shopkeepers</a>
-</div>
+<nav class="ledger">
+    <a class="ledger-row" href="/admin/shops">
+        <span class="kicker">01</span>
+        <span><strong>Shops</strong><em>Name and location of each house.</em></span>
+        <span class="go">Open</span>
+    </a>
+    <a class="ledger-row" href="/admin/items">
+        <span class="kicker">02</span>
+        <span><strong>Items</strong><em>Price, stock, and category.</em></span>
+        <span class="go">Open</span>
+    </a>
+    <a class="ledger-row" href="/admin/shopkeepers">
+        <span class="kicker">03</span>
+        <span><strong>Shopkeepers</strong><em>Accounts, and which shop they stand in.</em></span>
+        <span class="go">Open</span>
+    </a>
+</nav>
