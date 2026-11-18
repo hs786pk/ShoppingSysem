@@ -220,17 +220,18 @@ namespace ShoppingSysem.Components.Pages
             await DbContext.SaveChangesAsync();
 
             await tx.CommitAsync();
-
             Logger.LogInformation(
                 "Shopkeeper {ShopkeeperId} recorded sale {SaleId}: item {ItemId} x {Quantity}, shop {ShopId}.",
                 user.Id, sale.Id, item.Id, qty, item.ShopId);
 
-            successMessage =
-                $"Sale recorded: {qty} x {item.Name} = Rs. {sale.TotalPrice:N2}";
             selectedItemId = 0;
             quantity = "";
 
             await LoadItems();
+
+            // Set after LoadItems so the success message is not cleared by the reload.
+            successMessage =
+                $"Sale recorded: {qty} x {item.Name} = Rs. {sale.TotalPrice:N2}";
         }
     }
 }
