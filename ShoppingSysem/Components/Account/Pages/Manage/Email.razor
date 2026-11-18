@@ -103,10 +103,17 @@
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmailChange").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["email"] = Input.NewEmail, ["code"] = code });
 
-        await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
+        try
+        {
+            await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
+        }
+        catch (EmailDeliveryException)
+        {
+            message = "Error: We could not send the confirmation email. Please try again later.";
+            return;
+        }
 
-        message = "Confirmation link to change email sent. Please check your email.";
-    }
+        message = "Confirmation link to change email sent. Please check your email.";    }
 
     private async Task OnSendEmailVerificationAsync()
     {
@@ -128,11 +135,18 @@
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
 
-        await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+        try
+        {
+            await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
+        }
+        catch (EmailDeliveryException)
+        {
+            message = "Error: We could not send the verification email. Please try again later.";
+            return;
+        }
 
         message = "Verification email sent. Please check your email.";
     }
-
     private sealed class InputModel
     {
         [Required]

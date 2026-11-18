@@ -9,6 +9,7 @@
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IEmailSender<ApplicationUser> EmailSender
+@inject ILogger<ResendEmailConfirmation> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
@@ -59,7 +60,15 @@
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+        try
+        {
+            await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+        }
+        catch (EmailDeliveryException)
+        {
+            // Same response either way so the page never reveals whether an account exists.
+            Logger.LogWarning("Confirmation email could not be delivered for user {UserId}.", user.Id);
+        }
 
         message = "Verification email sent. Please check your email.";
     }

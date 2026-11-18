@@ -88,19 +88,56 @@
         Logger.LogInformation("User created a new account with password.");
 
         // Everyone who registers here is a buyer. Shopkeepers are created by the admin.
-        await UserManager.AddToRoleAsync(user, "Customer");
+// Public registration must only create Customer accounts.
+// Shopkeeper and Admin accounts are managed separately.
+var roleResult = await UserManager.AddToRoleAsync(
+    user,
+    "Customer");
 
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+if (!roleResult.Succeeded)
+{
+    identityErrors = roleResult.Errors;
+
+    var cleanupResult = await UserManager.DeleteAsync(user);
+
+    if (!cleanupResult.Succeeded)
+    {
+        Logger.LogCritical(
+            "Failed to clean up a newly registered account after Customer role assignment failed.");
+    }
+
+    Logger.LogError(
+        "Customer role assignment failed during registration.");
+
+    return;
+}
+
+var userId = await UserManager.GetUserIdAsync(user);        
+var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(
             NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
             new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
 
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
-
-        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        try
         {
+            await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+        }
+        catch (EmailDeliveryException)
+        {
+            // The account exists; the sender has already logged the details.
+            identityErrors = new[]
+            {
+                new IdentityError
+                {
+                    Description = "Your account was created, but we could not send the confirmation email. " +
+                                  "Please use \"Resend email confirmation\" in a few minutes."
+                }
+            };
+            return;
+        }
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)        {
             RedirectManager.RedirectTo(
                 "Account/RegisterConfirmation",
                 new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
@@ -142,7 +179,7 @@
         public string Email { get; set; } = "";
 
         [Required]
-        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 6)]
+        [StringLength(100, ErrorMessage = "The {0} must be at least {2} and at max {1} characters long.", MinimumLength = 12)]
         [DataType(DataType.Password)]
         [Display(Name = "Password")]
         public string Password { get; set; } = "";

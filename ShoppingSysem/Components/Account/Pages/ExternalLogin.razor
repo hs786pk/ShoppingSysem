@@ -113,7 +113,7 @@
             externalLoginInfo.LoginProvider,
             externalLoginInfo.ProviderKey,
             isPersistent: false,
-            bypassTwoFactor: true);
+            bypassTwoFactor: false);
 
         if (result.Succeeded)
         {
@@ -124,12 +124,18 @@
             RedirectManager.RedirectTo(ReturnUrl);
             return;
         }
+        else if (result.RequiresTwoFactor)
+        {
+            RedirectManager.RedirectTo(
+                "Account/LoginWith2fa",
+                new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = false });
+            return;
+        }
         else if (result.IsLockedOut)
         {
             RedirectManager.RedirectTo("Account/Lockout");
             return;
         }
-
         // If the user does not have an account, then ask the user to create an account.
         if (externalLoginInfo.Principal.HasClaim(c => c.Type == ClaimTypes.Email))
         {
@@ -154,7 +160,11 @@
         var result = await UserManager.CreateAsync(user);
         if (result.Succeeded)
         {
-            result = await UserManager.AddLoginAsync(user, externalLoginInfo);
+            // External registration only ever creates Customer accounts.
+            result = await UserManager.AddToRoleAsync(user, "Customer");
+            if (result.Succeeded)
+                result = await UserManager.AddLoginAsync(user, externalLoginInfo);
+
             if (result.Succeeded)
             {
                 Logger.LogInformation("User created an account using {Name} provider.", externalLoginInfo.LoginProvider);
@@ -166,7 +176,16 @@
                 var callbackUrl = NavigationManager.GetUriWithQueryParameters(
                     NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
                     new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code });
-                await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+                try
+                {
+                    await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+                }
+                catch (EmailDeliveryException)
+                {
+                    message = "Error: Your account was created, but we could not send the confirmation email. " +
+                              "Please use \"Resend email confirmation\" later.";
+                    return;
+                }
 
                 // If account confirmation is required, we need to show the link if we don't have a real email sender
                 if (UserManager.Options.SignIn.RequireConfirmedAccount)
@@ -178,6 +197,16 @@
                     await SignInManager.SignInAsync(user, isPersistent: false, externalLoginInfo.LoginProvider);
                     RedirectManager.RedirectTo(ReturnUrl);
                 }
+            }
+            else
+            {
+                // Never leave a half-created account (no role or no login) behind.
+                Logger.LogError(
+                    "External registration failed for provider {Provider}: {Errors}",
+                    externalLoginInfo.LoginProvider,
+                    string.Join(",", result.Errors.Select(e => e.Code)));
+                await UserManager.DeleteAsync(user);
+                message = "Error: We could not complete your registration. Please try again.";
             }
         }
         else

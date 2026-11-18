@@ -1,0 +1,5 @@
+<Solution>
+  <Folder Name="/ShoppingSysem/" />
+  <Project Path="ShoppingSysem/ShoppingSystem.csproj" />
+  <Project Path="ShoppingSystem.Tests/ShoppingSystem.Tests.csproj" />
+</Solution>
