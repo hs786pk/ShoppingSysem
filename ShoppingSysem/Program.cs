@@ -1,8 +1,10 @@
 
 using System.ComponentModel.DataAnnotations;
+using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using ShoppingSysem.Components;
 using ShoppingSysem.Components.Account;
@@ -35,6 +37,30 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+
+// Limit account-related form submissions without throttling ordinary app traffic.
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+    options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
+    {
+        if (!HttpMethods.IsPost(context.Request.Method) ||
+            !context.Request.Path.StartsWithSegments("/Account"))
+        {
+            return RateLimitPartition.GetNoLimiter("non-account");
+        }
+
+        var clientIp = context.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        return RateLimitPartition.GetFixedWindowLimiter(clientIp, _ =>
+            new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 20,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+                AutoReplenishment = true
+            });
+    });
+});
 
 // Identity security configuration.
 builder.Services.AddIdentityCore<ApplicationUser>(options =>
@@ -225,6 +251,8 @@ else
 }
 app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
+app.UseRouting();
+app.UseRateLimiter();
 
 app.Use(async (context, next) =>
 {
