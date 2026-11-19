@@ -68,8 +68,8 @@ public class RecommendationService : IRecommendationService
             return false;
         }
 
-        if (await _userManager.IsInRoleAsync(currentUser, "Customer")
-            || await _userManager.IsInRoleAsync(currentUser, "Admin"))
+        if (await _userManager.IsInRoleAsync(currentUser, AppRoles.Customer)
+            || await _userManager.IsInRoleAsync(currentUser, AppRoles.Admin))
             return true;
 
         _logger.LogWarning(

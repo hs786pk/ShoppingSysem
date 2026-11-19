@@ -23,57 +23,72 @@ namespace ShoppingSysem.Data
         {
             base.OnModelCreating(builder);
 
-            builder.Entity<Item>()
-        .Property(i => i.Price)
-        .HasPrecision(18, 2);
+            builder.Entity<Item>(e =>
+            {
+                e.Property(i => i.Price).HasPrecision(18, 2);
+                e.Property(i => i.Category).HasMaxLength(100);
+                e.HasOne(i => i.Shop)
+                    .WithMany(s => s.Items)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(i => i.ShopId);
+                e.HasIndex(i => i.Category);
+            });
 
-            builder.Entity<Sale>()
-                .Property(s => s.TotalPrice)
-                .HasPrecision(18, 2);
+            builder.Entity<Sale>(e =>
+            {
+                e.Property(s => s.TotalPrice).HasPrecision(18, 2);
+                e.HasOne(s => s.Shop)
+                    .WithMany()
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(s => s.Item)
+                    .WithMany()
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(s => s.ShopkeeperId);
+                e.HasIndex(s => s.ShopId);
+                e.HasIndex(s => s.ItemId);
+                e.HasIndex(s => s.SaleDate);
+            });
 
-            builder.Entity<Item>()
-                .HasOne(i => i.Shop)
-                .WithMany(s => s.Items)
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.Entity<ShopAssignment>(e =>
+            {
+                e.HasOne(sa => sa.Shop)
+                    .WithMany(s => s.ShopAssignments)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(sa => sa.ShopkeeperId);
+                e.HasIndex(sa => sa.ShopId);
+                e.HasIndex(sa => new { sa.ShopkeeperId, sa.ShopId })
+                    .IsUnique();
+            });
 
-            builder.Entity<Sale>()
-                .HasOne(s => s.Shop)
-                .WithMany()
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.Entity<Order>(e =>
+            {
+                e.Property(o => o.UnitPrice).HasPrecision(18, 2);
+                e.Property(o => o.TotalPrice).HasPrecision(18, 2);
+                e.HasOne(o => o.Item)
+                    .WithMany()
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(o => o.Shop)
+                    .WithMany()
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasOne(o => o.Customer)
+                    .WithMany()
+                    .HasForeignKey(o => o.CustomerId)
+                    .OnDelete(DeleteBehavior.Restrict);
+                e.HasIndex(o => o.CustomerId);
+                e.HasIndex(o => o.ShopId);
+                e.HasIndex(o => o.ItemId);
+                e.HasIndex(o => o.Status);
+                e.HasIndex(o => o.OrderedAt);
+            });
 
-            builder.Entity<Sale>()
-                .HasOne(s => s.Item)
-                .WithMany()
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.Entity<ShopAssignment>()
-                .HasOne(sa => sa.Shop)
-                .WithMany(s => s.ShopAssignments)
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.Entity<Order>()
-    .Property(o => o.UnitPrice)
-    .HasPrecision(18, 2);
-
-            builder.Entity<Order>()
-                .Property(o => o.TotalPrice)
-                .HasPrecision(18, 2);
-
-            builder.Entity<Order>()
-                .HasOne(o => o.Item)
-                .WithMany()
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.Entity<Order>()
-                .HasOne(o => o.Shop)
-                .WithMany()
-                .OnDelete(DeleteBehavior.Restrict);
-
-            builder.Entity<Order>()
-                .HasOne(o => o.Customer)
-                .WithMany()
-                .HasForeignKey(o => o.CustomerId)
-                .OnDelete(DeleteBehavior.Restrict);
+            builder.Entity<CustomerInterest>(e =>
+            {
+                e.Property(i => i.Category).HasMaxLength(100);
+                e.Property(i => i.UserId).HasMaxLength(450);
+                e.HasIndex(i => i.UserId);
+                e.HasIndex(i => i.ItemId);
+                e.HasIndex(i => new { i.UserId, i.ItemId, i.Type, i.CreatedAt });
+            });
         }
     }
 }

@@ -128,9 +128,32 @@ HardenIdentityCookie(IdentityConstants.TwoFactorRememberMeScheme, persistentAppl
 
 builder.Services.Configure<SmtpOptions>(
     builder.Configuration.GetSection("Smtp"));
+builder.Services.Configure<DevelopmentEmailOptions>(
+    builder.Configuration.GetSection("DevelopmentEmail"));
 
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>,
-    SmtpEmailSender>();
+// Prefer real SMTP when configured. In Development with no SMTP, capture
+// emails to disk so confirmation and reset flows remain testable.
+var smtpConfig = builder.Configuration.GetSection("Smtp");
+var smtpHost = smtpConfig["Host"];
+var smtpFrom = smtpConfig["FromAddress"];
+var smtpConfigured = !string.IsNullOrWhiteSpace(smtpHost) &&
+                     !string.IsNullOrWhiteSpace(smtpFrom);
+
+if (smtpConfigured)
+{
+    builder.Services.AddSingleton<IEmailSender<ApplicationUser>, SmtpEmailSender>();
+}
+else if (builder.Environment.IsDevelopment())
+{
+    builder.Services.AddSingleton<IEmailSender<ApplicationUser>, DevelopmentEmailSender>();
+}
+else
+{
+    // Production/staging without SMTP: keep the SMTP sender so startup
+    // validation below fails loudly instead of silently dropping mail.
+    builder.Services.AddSingleton<IEmailSender<ApplicationUser>, SmtpEmailSender>();
+}
+
 builder.Services.AddScoped<
     ShoppingSysem.Services.IRecommendationService,
     ShoppingSysem.Services.RecommendationService>();
@@ -217,8 +240,12 @@ if (string.IsNullOrWhiteSpace(smtpOptions?.Host) ||
             "(plus Smtp:Username and Smtp:Password) in protected configuration.");
     }
 
+    var devEmailDir = app.Configuration["DevelopmentEmail:OutputDirectory"] ?? "DevEmails";
     app.Logger.LogWarning(
-        "SMTP is not configured; confirmation and password-reset emails will not be sent.");
+        "SMTP is not configured. Development emails will be written under '{Dir}'.",
+        Path.IsPathRooted(devEmailDir)
+            ? devEmailDir
+            : Path.Combine(app.Environment.ContentRootPath, devEmailDir));
 }
 // Seed required application roles.
 using (var scope = app.Services.CreateScope())
@@ -226,12 +253,7 @@ using (var scope = app.Services.CreateScope())
     var roleManager =
         scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
 
-    string[] roleNames =
-    {
-        "Admin",
-        "Shopkeeper",
-        "Customer"
-    };
+    string[] roleNames = AppRoles.All;
 
     foreach (var roleName in roleNames)
     {
@@ -298,7 +320,7 @@ if (app.Configuration.GetValue<bool>("AdminProvisioning:Enabled"))
         }
 
         var roleResult =
-            await userManager.AddToRoleAsync(adminUser, "Admin");
+            await userManager.AddToRoleAsync(adminUser, AppRoles.Admin);
 
         if (!roleResult.Succeeded)
         {
@@ -312,7 +334,7 @@ if (app.Configuration.GetValue<bool>("AdminProvisioning:Enabled"))
         app.Logger.LogInformation(
             "Initial administrator account provisioned successfully.");
     }
-    else if (!await userManager.IsInRoleAsync(existingAdmin, "Admin"))
+    else if (!await userManager.IsInRoleAsync(existingAdmin, AppRoles.Admin))
     {
         throw new InvalidOperationException(
             "The configured administrator email already belongs to " +

@@ -26,11 +26,14 @@ namespace ShoppingSysem.Models
         public int ShopId { get; set; }
         public Shop Shop { get; set; } = null!;
 
+        [Range(1, 10_000)]
         public int Quantity { get; set; }
 
         // Snapshot. Later price edits must not change this order.
+        [Range(0, 100_000_000)]
         public decimal UnitPrice { get; set; }
 
+        [Range(0, 1_000_000_000_000)]
         public decimal TotalPrice { get; set; }
 
         public DateTime OrderedAt { get; set; } = DateTime.UtcNow;

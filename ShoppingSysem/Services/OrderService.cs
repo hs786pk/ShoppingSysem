@@ -103,8 +103,8 @@ public class OrderService : IOrderService
             return new(false, "Unauthorized order request.");
         }
 
-        var isCustomer = await HasRoleAsync(currentUser, "Customer");
-        var isAdmin = await HasRoleAsync(currentUser, "Admin");
+        var isCustomer = await HasRoleAsync(currentUser, AppRoles.Customer);
+        var isAdmin = await HasRoleAsync(currentUser, AppRoles.Admin);
 
         if (!isCustomer && !isAdmin)
         {
@@ -227,8 +227,8 @@ public class OrderService : IOrderService
             return new();
         }
 
-        var isCustomer = await HasRoleAsync(currentUser, "Customer");
-        var isAdmin = await HasRoleAsync(currentUser, "Admin");
+        var isCustomer = await HasRoleAsync(currentUser, AppRoles.Customer);
+        var isAdmin = await HasRoleAsync(currentUser, AppRoles.Admin);
 
         if (!isCustomer && !isAdmin)
         {
@@ -263,7 +263,7 @@ public class OrderService : IOrderService
             return new();
         }
 
-        if (!await HasRoleAsync(currentUser, "Shopkeeper"))
+        if (!await HasRoleAsync(currentUser, AppRoles.Shopkeeper))
         {
             _logger.LogWarning(
                 "Shopkeeper order list denied: user {UserId} is not a Shopkeeper.",
@@ -373,7 +373,7 @@ public class OrderService : IOrderService
                 return new(false, "Unauthorized request.");
             }
 
-            if (!await HasRoleAsync(currentUser, "Shopkeeper"))
+            if (!await HasRoleAsync(currentUser, AppRoles.Shopkeeper))
             {
                 _logger.LogWarning(
                     "Order status change denied: user {UserId} is not a Shopkeeper (order {OrderId}).",
@@ -394,8 +394,8 @@ public class OrderService : IOrderService
                 return new(false, "Unauthorized request.");
             }
 
-            var isCustomer = await HasRoleAsync(currentUser, "Customer");
-            var isAdmin = await HasRoleAsync(currentUser, "Admin");
+            var isCustomer = await HasRoleAsync(currentUser, AppRoles.Customer);
+            var isAdmin = await HasRoleAsync(currentUser, AppRoles.Admin);
 
             if (!isCustomer && !isAdmin)
             {

@@ -1,4 +1,6 @@
-﻿namespace ShoppingSysem.Models;
+﻿using System.ComponentModel.DataAnnotations;
+
+namespace ShoppingSysem.Models;
 
 public enum InteractionType
 {
@@ -15,10 +17,13 @@ public class CustomerInterest
 {
     public int Id { get; set; }
 
+    [Required]
+    [MaxLength(450)]
     public string UserId { get; set; } = string.Empty;   // AspNetUsers.Id
 
     public int ItemId { get; set; }
 
+    [MaxLength(100)]
     public string Category { get; set; } = "General";    // copied from Item at record time
 
     public InteractionType Type { get; set; }
