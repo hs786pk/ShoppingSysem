@@ -81,7 +81,23 @@
 
         if (!result.Succeeded)
         {
-            identityErrors = result.Errors;
+            // Do not disclose whether an email address or username is already registered.
+            if (result.Errors.Any(error =>
+                error.Code is "DuplicateUserName" or "DuplicateEmail"))
+            {
+                identityErrors = new[]
+                {
+                    new IdentityError
+                    {
+                        Description = "Registration could not be completed. If you already have an account, sign in or reset your password."
+                    }
+                };
+            }
+            else
+            {
+                identityErrors = result.Errors;
+            }
+
             return;
         }
 
