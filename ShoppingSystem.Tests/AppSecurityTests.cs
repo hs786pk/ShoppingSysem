@@ -1,6 +1,9 @@
 ﻿using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Security.Claims;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
@@ -313,6 +316,93 @@ public sealed class IdentitySecurityTests(AppFixture app) : IClassFixture<AppFix
             Assert.True(result.IsNotAllowed);
         }
     }
+
+    [Fact]
+    public async Task ExternalLogin_WithTwoFactorEnabled_RedirectsToTwoFactorWithoutApplicationCookie()
+    {
+        var email = NewEmail();
+        using (var scope = app.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true };
+            Assert.True((await users.CreateAsync(user)).Succeeded);
+            Assert.True((await users.AddLoginAsync(user,
+                new UserLoginInfo("TestProvider", "external-user-2fa", "Test Provider"))).Succeeded);
+            Assert.True((await users.SetTwoFactorEnabledAsync(user, true)).Succeeded);
+        }
+
+        var externalCookie = await CreateExternalAuthenticationCookieAsync("external-user-2fa");
+        var callback = await InvokeExternalLoginCallbackAsync(externalCookie);
+
+        Assert.Equal(StatusCodes.Status302Found, callback.Response.StatusCode);
+        Assert.Contains("/Account/LoginWith2fa", callback.Response.Headers.Location.ToString());
+        var cookies = callback.Response.Headers["Set-Cookie"].ToString();
+        Assert.Contains("TwoFactorUserId", cookies);
+        Assert.DoesNotContain("Identity.Application", cookies);
+    }
+
+    [Fact]
+    public async Task ExternalLogin_WithoutTwoFactorEnabled_CompletesSignIn()
+    {
+        var email = NewEmail();
+        using (var scope = app.Factory.Services.CreateScope())
+        {
+            var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+            var user = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true };
+            Assert.True((await users.CreateAsync(user)).Succeeded);
+            Assert.True((await users.AddLoginAsync(user,
+                new UserLoginInfo("TestProvider", "external-user-no-2fa", "Test Provider"))).Succeeded);
+        }
+
+        var externalCookie = await CreateExternalAuthenticationCookieAsync("external-user-no-2fa");
+        var callback = await InvokeExternalLoginCallbackAsync(externalCookie);
+
+        Assert.Equal(StatusCodes.Status302Found, callback.Response.StatusCode);
+        Assert.Contains("Identity.Application", callback.Response.Headers["Set-Cookie"].ToString());
+        Assert.DoesNotContain("TwoFactorUserId", callback.Response.Headers["Set-Cookie"].ToString());
+    }
+
+    private Task<string> CreateExternalAuthenticationCookieAsync(string providerKey)
+    {
+        // Build the same protected ticket that an external provider middleware
+        // writes to Identity.External. This avoids relying on TestServer response
+        // cookie emission while still exercising the real Identity callback.
+        var options = app.Factory.Services
+            .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(IdentityConstants.ExternalScheme);
+
+        Assert.NotNull(options.TicketDataFormat);
+        Assert.False(string.IsNullOrWhiteSpace(options.Cookie.Name));
+
+        var identity = new ClaimsIdentity(
+            new[]
+            {
+                new Claim(ClaimTypes.NameIdentifier, providerKey),
+                new Claim(ClaimTypes.Name, "Test external user")
+            },
+            authenticationType: "TestProvider");
+
+        var principal = new ClaimsPrincipal(identity);
+        var properties = new AuthenticationProperties();
+        properties.Items["LoginProvider"] = "TestProvider";
+
+        var ticket = new AuthenticationTicket(
+            principal,
+            properties,
+            IdentityConstants.ExternalScheme);
+        var protectedTicket = options.TicketDataFormat!.Protect(ticket);
+
+        return Task.FromResult($"{options.Cookie.Name}={protectedTicket}");
+    }
+
+    private Task<Microsoft.AspNetCore.Http.HttpContext> InvokeExternalLoginCallbackAsync(string externalCookie) =>
+        app.Factory.Server.SendAsync(context =>
+        {
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/Account/ExternalLogin";
+            context.Request.QueryString = new QueryString("?Action=LoginCallback");
+            context.Request.Headers.Cookie = externalCookie;
+        });
 
     [Fact]
     public async Task PublicRegistration_CreatesCustomerOnly_IgnoringOverposting()
