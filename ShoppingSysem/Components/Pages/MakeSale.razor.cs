@@ -160,7 +160,9 @@ namespace ShoppingSysem.Components.Pages
                 return;
             }
 
-            if (item.Price < 0)
+            if (item.Price < 0 ||
+                item.Price > 100_000_000m ||
+                decimal.Round(item.Price, 2) != item.Price)
             {
                 await tx.RollbackAsync();
                 errorMessage = "This item has an invalid price and cannot be sold.";

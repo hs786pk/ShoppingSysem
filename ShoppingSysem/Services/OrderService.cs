@@ -132,7 +132,9 @@ public class OrderService : IOrderService
         if (item is null)
             return new(false, "That product no longer exists.");
 
-        if (item.Price < 0)
+        if (item.Price < 0 ||
+            item.Price > 100_000_000m ||
+            decimal.Round(item.Price, 2) != item.Price)
             return new(false, "Invalid product price.");
 
         decimal totalPrice;
