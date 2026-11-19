@@ -20,13 +20,57 @@ namespace ShoppingSysem.Components.Account
         {
             uri ??= "";
 
-            // Prevent open redirects.
-            if (!Uri.IsWellFormedUriString(uri, UriKind.Relative))
+            if (!IsSafeRelative(uri))
             {
-                uri = navigationManager.ToBaseRelativePath(uri);
+                if (!TryToLocalPath(uri, out var local))
+                    local = "";
+
+                uri = local;
             }
 
             navigationManager.NavigateTo(uri);
+        }
+
+        // Same-origin absolute URLs used as ReturnUrl become a relative path.
+        // Any other absolute URI, including a different host, is rejected.
+        private bool TryToLocalPath(string uri, out string local)
+        {
+            local = "";
+
+            try
+            {
+                if (!Uri.TryCreate(uri, UriKind.Absolute, out var absolute) ||
+                    absolute.Scheme is not ("http" or "https"))
+                {
+                    return false;
+                }
+
+                local = navigationManager.ToBaseRelativePath(uri);
+                return IsSafeRelative(local);
+            }
+            catch (Exception ex) when (ex is InvalidOperationException or ArgumentException)
+            {
+                return false;
+            }
+        }
+
+        private static bool IsSafeRelative(string uri)
+        {
+            if (uri.Length == 0)
+                return true;
+
+            // Blocks //host, /\host, and scheme-bearing values that still count as "relative".
+            if (uri.Contains('\\') ||
+                uri.Contains("://", StringComparison.Ordinal) ||
+                uri.StartsWith("//", StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            if (uri.StartsWith('/') && uri.Length > 1 && (uri[1] == '/' || uri[1] == '\\'))
+                return false;
+
+            return Uri.IsWellFormedUriString(uri, UriKind.Relative);
         }
 
         public void RedirectTo(string uri, Dictionary<string, object?> queryParameters)

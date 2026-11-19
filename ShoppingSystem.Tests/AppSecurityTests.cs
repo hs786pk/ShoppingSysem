@@ -445,6 +445,343 @@ public sealed class IdentitySecurityTests(AppFixture app) : IClassFixture<AppFix
         Assert.Equal(new[] { "Customer" }, roles);
     }
 
+    [Theory]
+    [InlineData("//evil.example")]
+    [InlineData("https://evil.example/phish")]
+    [InlineData("/\\evil.example")]
+    [InlineData("\\\\evil.example")]
+    public async Task Login_RejectsOffSiteReturnUrl(string returnUrl)
+    {
+        var email = NewEmail();
+        var (_, scope) = await CreateUserAsync(email, confirmed: true);
+        scope.Dispose();
+
+        using var client = app.Factory.CreateClient(
+            new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await PostLoginAsync(client, email, returnUrl);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        var location = response.Headers.Location?.OriginalString ?? "";
+        Assert.DoesNotContain("evil.example", location, StringComparison.OrdinalIgnoreCase);
+        Assert.False(location.StartsWith("//", StringComparison.Ordinal));
+        Assert.DoesNotContain("\\", location);
+    }
+
+    [Fact]
+    public async Task Login_AllowsLocalReturnUrl()
+    {
+        var email = NewEmail();
+        var (_, scope) = await CreateUserAsync(email, confirmed: true);
+        scope.Dispose();
+
+        using var client = app.Factory.CreateClient(
+            new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var response = await PostLoginAsync(client, email, "/buyer");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("/buyer", response.Headers.Location?.OriginalString);
+    }
+
+    [Fact]
+    public async Task ExternalRegistration_DuplicateEmail_DoesNotDiscloseThatTheAccountExists()
+    {
+        var email = NewEmail();
+        var (_, scope) = await CreateUserAsync(email, confirmed: true);
+        scope.Dispose();
+
+        var body = await PostExternalRegistrationAsync(email, "external-duplicate-user");
+
+        Assert.Contains("If you already have an account", body);
+        Assert.DoesNotContain("already taken", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("DuplicateUser", body);
+        Assert.Equal(new[] { "Customer" }, await RolesOfEmailAsync(email));
+    }
+
+    [Fact]
+    public async Task ExternalRegistration_CreatesCustomerOnly_IgnoringOverposting()
+    {
+        var email = NewEmail();
+        var body = await PostExternalRegistrationAsync(email, "external-new-user");
+
+        Assert.DoesNotContain("already taken", body, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal(new[] { "Customer" }, await RolesOfEmailAsync(email));
+    }
+
+    [Fact]
+    public async Task Response_UsesRestrictedContentSecurityPolicy()
+    {
+        using var client = app.Factory.CreateClient();
+        using var response = await client.GetAsync("/");
+        response.EnsureSuccessStatusCode();
+
+        Assert.True(response.Headers.TryGetValues("Content-Security-Policy", out var values));
+        var csp = string.Join(" ", values!);
+        Assert.Contains("default-src 'self'", csp);
+        Assert.Contains("script-src 'self'", csp);
+        Assert.Contains("connect-src 'self'", csp);
+        Assert.Contains("form-action 'self'", csp);
+        Assert.Contains("frame-ancestors 'none'", csp);
+        Assert.Contains("base-uri 'self'", csp);
+        Assert.Contains("object-src 'none'", csp);
+        Assert.DoesNotContain("*", csp);
+    }
+
+    [Fact]
+    public void IdentityCookies_AreHttpOnly_AndOnlyTheApplicationCookieLastsEightHours()
+    {
+        var monitor = app.Factory.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>();
+
+        void AssertCommon(CookieAuthenticationOptions options)
+        {
+            Assert.True(options.Cookie.HttpOnly);
+            Assert.Equal(SameSiteMode.Lax, options.Cookie.SameSite);
+            Assert.Equal(CookieSecurePolicy.SameAsRequest, options.Cookie.SecurePolicy);
+        }
+
+        var application = monitor.Get(IdentityConstants.ApplicationScheme);
+        AssertCommon(application);
+        Assert.Equal(TimeSpan.FromHours(8), application.ExpireTimeSpan);
+        Assert.True(application.SlidingExpiration);
+
+        var external = monitor.Get(IdentityConstants.ExternalScheme);
+        AssertCommon(external);
+        Assert.NotEqual(TimeSpan.FromHours(8), external.ExpireTimeSpan);
+
+        var twoFactorUser = monitor.Get(IdentityConstants.TwoFactorUserIdScheme);
+        AssertCommon(twoFactorUser);
+        Assert.True(twoFactorUser.ExpireTimeSpan <= TimeSpan.FromMinutes(10));
+
+        var remember = monitor.Get(IdentityConstants.TwoFactorRememberMeScheme);
+        AssertCommon(remember);
+        Assert.NotEqual(TimeSpan.FromHours(8), remember.ExpireTimeSpan);
+    }
+
+    [Theory]
+    [InlineData("/admin", "Admin", "The house books.")]
+    [InlineData("/admin/items", "Admin", "Manage Items")]
+    [InlineData("/admin/shops", "Admin", "Manage Shops")]
+    [InlineData("/admin/shopkeepers", "Admin", "Create Shopkeeper Account")]
+    [InlineData("/shopkeeper", "Shopkeeper", "Today's till.")]
+    [InlineData("/shopkeeper/sale", "Shopkeeper", "Make a Sale")]
+    [InlineData("/shopkeeper/history", "Shopkeeper", "My Sales History")]
+    [InlineData("/shopkeeper/orders", "Shopkeeper", "Customer orders.")]
+    [InlineData("/buyer", "Customer", "Shop the houses.")]
+    [InlineData("/buyer/orders", "Customer", "What you bought.")]
+    public async Task ProtectedPage_AnonymousIsChallenged_WrongRoleIsForbidden_OwnerIsAllowed(
+        string path, string role, string marker)
+    {
+        using var anonymous = app.Factory.CreateClient(
+            new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        using var anonResponse = await anonymous.GetAsync(path);
+        AssertRedirectsTo(anonResponse, "/Account/Login");
+
+        var customer = await CreateRoleUserAsync(role == "Customer" ? "Shopkeeper" : "Customer");
+        using var wrong = app.Factory.CreateClient(
+            new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        wrong.DefaultRequestHeaders.Add("Cookie", await ApplicationCookieAsync(customer));
+        using var wrongResponse = await wrong.GetAsync(path);
+        AssertRedirectsTo(wrongResponse, "/Account/AccessDenied");
+
+        var owner = await CreateRoleUserAsync(role);
+        using var allowed = app.Factory.CreateClient(
+            new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+        allowed.DefaultRequestHeaders.Add("Cookie", await ApplicationCookieAsync(owner));
+        using var allowedResponse = await allowed.GetAsync(path);
+        allowedResponse.EnsureSuccessStatusCode();
+        var html = await allowedResponse.Content.ReadAsStringAsync();
+        Assert.Contains(marker, html);
+    }
+
+    [Fact]
+    public void Production_IdentityCookies_RequireHttps()
+    {
+        using var env = new ProvisioningEnv(false, null, null);
+        using var db = new TestDb();
+        using var factory = new ProductionCookieFactory(db.ConnectionString);
+        var monitor = factory.Services.GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>();
+
+        foreach (var scheme in new[]
+        {
+            IdentityConstants.ApplicationScheme,
+            IdentityConstants.ExternalScheme,
+            IdentityConstants.TwoFactorUserIdScheme,
+            IdentityConstants.TwoFactorRememberMeScheme
+        })
+        {
+            var options = monitor.Get(scheme);
+            Assert.Equal(CookieSecurePolicy.Always, options.Cookie.SecurePolicy);
+            Assert.True(options.Cookie.HttpOnly);
+            Assert.Equal(SameSiteMode.Lax, options.Cookie.SameSite);
+        }
+
+        Assert.Equal(TimeSpan.FromHours(8),
+            monitor.Get(IdentityConstants.ApplicationScheme).ExpireTimeSpan);
+        Assert.True(monitor.Get(IdentityConstants.TwoFactorUserIdScheme).ExpireTimeSpan
+            < TimeSpan.FromHours(1));
+    }
+
+    private async Task<HttpResponseMessage> PostLoginAsync(
+        HttpClient client, string email, string returnUrl)
+    {
+        var pageUrl = "/Account/Login?ReturnUrl=" + Uri.EscapeDataString(returnUrl);
+        using var page = await client.GetAsync(pageUrl);
+        page.EnsureSuccessStatusCode();
+
+        var fields = HiddenFields(await page.Content.ReadAsStringAsync());
+        fields["Input.Email"] = email;
+        fields["Input.Password"] = StrongPassword;
+        fields["Input.RememberMe"] = "false";
+
+        return await client.PostAsync(pageUrl, new FormUrlEncodedContent(fields));
+    }
+
+    private async Task<string> PostExternalRegistrationAsync(string email, string providerKey)
+    {
+        var externalCookie = await CreateExternalAuthenticationCookieAsync(providerKey);
+        var get = await app.Factory.Server.SendAsync(context =>
+        {
+            context.Request.Method = HttpMethods.Get;
+            context.Request.Path = "/Account/ExternalLogin";
+            context.Request.QueryString = new QueryString("?Action=LoginCallback");
+            context.Request.Headers.Cookie = externalCookie;
+        });
+
+        Assert.Equal(StatusCodes.Status200OK, get.Response.StatusCode);
+        using var reader = new StreamReader(get.Response.Body);
+        var html = await reader.ReadToEndAsync();
+        var fields = HiddenFields(html);
+        Assert.True(fields.ContainsKey("__RequestVerificationToken"));
+
+        fields["Input.Email"] = email;
+        fields["Input.Role"] = "Admin";
+        fields["Input.Roles"] = "Admin";
+        fields["Role"] = "Admin";
+        fields["IsAdmin"] = "true";
+
+        Assert.False(Microsoft.Extensions.Primitives.StringValues.IsNullOrEmpty(get.Response.Headers.SetCookie));
+        var cookies = get.Response.Headers.SetCookie
+            .Select(header => header!.Split(';', 2)[0])
+            .Append(externalCookie);
+        var form = new FormUrlEncodedContent(fields);
+        var bodyBytes = await form.ReadAsByteArrayAsync();
+
+        var post = await app.Factory.Server.SendAsync(context =>
+        {
+            context.Request.Method = HttpMethods.Post;
+            context.Request.Path = "/Account/ExternalLogin";
+            context.Request.QueryString = new QueryString("?Action=LoginCallback");
+            context.Request.ContentType = "application/x-www-form-urlencoded";
+            context.Request.ContentLength = bodyBytes.Length;
+            context.Request.Body = new MemoryStream(bodyBytes);
+            context.Request.Headers.Cookie = string.Join("; ", cookies);
+        });
+
+        using var postReader = new StreamReader(post.Response.Body);
+        var postBody = await postReader.ReadToEndAsync();
+        if (post.Response.StatusCode is StatusCodes.Status302Found)
+        {
+            return post.Response.Headers.Location.ToString() + postBody;
+        }
+
+        Assert.True(post.Response.StatusCode < 500, postBody);
+        return postBody;
+    }
+
+    private async Task<ApplicationUser> CreateRoleUserAsync(string role)
+    {
+        var email = NewEmail();
+        using var scope = app.Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var user = new ApplicationUser
+        {
+            UserName = email,
+            Email = email,
+            EmailConfirmed = true
+        };
+
+        Assert.True((await users.CreateAsync(user, StrongPassword)).Succeeded);
+        Assert.True((await users.AddToRoleAsync(user, role)).Succeeded);
+        return user;
+    }
+
+    private async Task<string> ApplicationCookieAsync(ApplicationUser user)
+    {
+        using var scope = app.Factory.Services.CreateScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var identityOptions = scope.ServiceProvider.GetRequiredService<IOptions<IdentityOptions>>().Value;
+        var stored = await users.FindByIdAsync(user.Id);
+        Assert.NotNull(stored);
+
+        var roles = await users.GetRolesAsync(stored!);
+        var stamp = await users.GetSecurityStampAsync(stored!);
+        var claims = new List<Claim>
+        {
+            new(identityOptions.ClaimsIdentity.UserIdClaimType, stored!.Id),
+            new(identityOptions.ClaimsIdentity.UserNameClaimType, stored.UserName!),
+            new(identityOptions.ClaimsIdentity.EmailClaimType, stored.Email!),
+            new(identityOptions.ClaimsIdentity.SecurityStampClaimType, stamp)
+        };
+        claims.AddRange(roles.Select(role =>
+            new Claim(identityOptions.ClaimsIdentity.RoleClaimType, role)));
+
+        var cookieOptions = app.Factory.Services
+            .GetRequiredService<IOptionsMonitor<CookieAuthenticationOptions>>()
+            .Get(IdentityConstants.ApplicationScheme);
+        var identity = new ClaimsIdentity(claims, IdentityConstants.ApplicationScheme);
+        var properties = new AuthenticationProperties
+        {
+            IssuedUtc = DateTimeOffset.UtcNow,
+            ExpiresUtc = DateTimeOffset.UtcNow.AddHours(1)
+        };
+        var ticket = new AuthenticationTicket(
+            new ClaimsPrincipal(identity),
+            properties,
+            IdentityConstants.ApplicationScheme);
+
+        return $"{cookieOptions.Cookie.Name}={cookieOptions.TicketDataFormat!.Protect(ticket)}";
+    }
+
+    private Task<List<string>> RolesOfEmailAsync(string email) =>
+        app.Db.QueryAsync(db => (
+            from u in db.Users
+            join ur in db.UserRoles on u.Id equals ur.UserId
+            join r in db.Roles on ur.RoleId equals r.Id
+            where u.Email == email
+            select r.Name!).ToListAsync());
+
+    private static void AssertRedirectsTo(HttpResponseMessage response, string path)
+    {
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains(path, response.Headers.Location?.OriginalString);
+    }
+
+    private sealed class ProductionCookieFactory(string connectionString) : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("Smtp:Host", "smtp.invalid");
+            builder.UseSetting("Smtp:FromAddress", "noreply@example.invalid");
+            builder.ConfigureServices(services =>
+            {
+                var remove = services.Where(d =>
+                    d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>) ||
+                    d.ServiceType == typeof(DbContextOptions) ||
+                    (d.ServiceType.IsGenericType &&
+                     d.ServiceType.Name.StartsWith("IDbContextOptionsConfiguration") &&
+                     d.ServiceType.GenericTypeArguments.Contains(typeof(ApplicationDbContext))))
+                    .ToList();
+
+                foreach (var descriptor in remove)
+                    services.Remove(descriptor);
+
+                services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(connectionString));
+            });
+        }
+    }
+
     private static Dictionary<string, string> HiddenFields(string html)
     {
         var fields = new Dictionary<string, string>();

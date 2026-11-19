@@ -23,7 +23,7 @@
 <h2>Associate your @ProviderDisplayName account.</h2>
 <hr />
 
-<div  class="alert alert-info">
+<div class="alert alert-info">
     You've successfully authenticated with <strong>@ProviderDisplayName</strong>.
     Please enter an email address for this site below and click the Register button to finish
     logging in.
@@ -211,7 +211,12 @@
         }
         else
         {
-            message = $"Error: {string.Join(",", result.Errors.Select(error => error.Description))}";
+            // Same disclosure rule as password registration: do not reveal
+            // whether the email address is already registered.
+            message = result.Errors.Any(error =>
+                error.Code is "DuplicateUserName" or "DuplicateEmail")
+                ? "Error: Registration could not be completed. If you already have an account, sign in or reset your password."
+                : "Error: Registration could not be completed. Check the email address and try again.";
         }
     }
 

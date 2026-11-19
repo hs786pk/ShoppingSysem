@@ -101,22 +101,30 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 .AddSignInManager()
 .AddDefaultTokenProviders();
 
-// Secure the application authentication cookie.
-builder.Services.Configure<CookieAuthenticationOptions>(
-    IdentityConstants.ApplicationScheme,
-    options =>
+// Secure every Identity cookie. The 8-hour lifetime applies only to the
+// application cookie so the short-lived two-factor cookies keep their own.
+void HardenIdentityCookie(string scheme, bool persistentApplicationCookie)
+{
+    builder.Services.Configure<CookieAuthenticationOptions>(scheme, options =>
     {
         options.Cookie.HttpOnly = true;
         options.Cookie.SameSite = SameSiteMode.Lax;
+        options.Cookie.SecurePolicy = builder.Environment.IsDevelopment()
+            ? CookieSecurePolicy.SameAsRequest
+            : CookieSecurePolicy.Always;
 
-        options.Cookie.SecurePolicy =
-            builder.Environment.IsDevelopment()
-                ? CookieSecurePolicy.SameAsRequest
-                : CookieSecurePolicy.Always;
-
-        options.SlidingExpiration = true;
-        options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        if (persistentApplicationCookie)
+        {
+            options.SlidingExpiration = true;
+            options.ExpireTimeSpan = TimeSpan.FromHours(8);
+        }
     });
+}
+
+HardenIdentityCookie(IdentityConstants.ApplicationScheme, persistentApplicationCookie: true);
+HardenIdentityCookie(IdentityConstants.ExternalScheme, persistentApplicationCookie: false);
+HardenIdentityCookie(IdentityConstants.TwoFactorUserIdScheme, persistentApplicationCookie: false);
+HardenIdentityCookie(IdentityConstants.TwoFactorRememberMeScheme, persistentApplicationCookie: false);
 
 builder.Services.Configure<SmtpOptions>(
     builder.Configuration.GetSection("Smtp"));
@@ -356,10 +364,21 @@ app.Use(async (context, next) =>
     headers["X-Frame-Options"] = "DENY";
     headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
     headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
-    // Blocks clickjacking and plugin content. Scripts and styles are unrestricted,
-    // so Blazor's inline scripts keep working.
+    // 'unsafe-inline' stays because Blazor emits an import map and App.razor
+    // has an inline sidebar script, plus inline style attributes.
+    // upgrade-insecure-requests is omitted so HTTP development and tests still work.
     headers["Content-Security-Policy"] =
-        "frame-ancestors 'none'; base-uri 'self'; object-src 'none'";
+        "default-src 'self'; " +
+        "script-src 'self' 'unsafe-inline'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data:; " +
+        "font-src 'self'; " +
+        "connect-src 'self'; " +
+        "form-action 'self'; " +
+        "frame-src 'self'; " +
+        "frame-ancestors 'none'; " +
+        "base-uri 'self'; " +
+        "object-src 'none'";
     await next();
 });
 app.UseAuthentication();
