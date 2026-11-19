@@ -278,6 +278,23 @@ public sealed class SaleSecurityTests : IDisposable
         Assert.Equal(5, await _db.StockAsync(w.Item1));
     }
 
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("100000000.01")]
+    [InlineData("12.345")]
+    public async Task Sale_InvalidPrice_IsRejected(string priceText)
+    {
+        var price = decimal.Parse(priceText, System.Globalization.CultureInfo.InvariantCulture);
+        var w = await SeedAsync(price: price);
+
+        var (error, success) = await SellAsync(w.Keeper1, w.Shop1, w.Item1, "1");
+
+        Assert.NotNull(error);
+        Assert.Null(success);
+        Assert.Empty(await SalesAsync());
+        Assert.Equal(5, await _db.StockAsync(w.Item1));
+    }
+
     [Fact]
     public async Task Sale_TotalOverflow_IsRejected()
     {

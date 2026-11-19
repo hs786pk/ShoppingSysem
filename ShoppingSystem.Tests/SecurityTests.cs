@@ -206,6 +206,24 @@ public sealed class OrderSecurityTests : IDisposable
         Assert.Equal(0, await _db.OrderCountAsync());
     }
 
+    [Theory]
+    [InlineData("-1")]
+    [InlineData("100000000.01")]
+    [InlineData("12.345")]
+    public async Task Place_InvalidProductPrice_IsRejected(string priceText)
+    {
+        var price = decimal.Parse(priceText, System.Globalization.CultureInfo.InvariantCulture);
+        var customer = await _db.AddUserAsync("price-test@test.local", "Customer");
+        var (_, itemId) = await _db.AddItemAsync("InvalidPriceShop", stock: 5, price: price);
+        using var actor = _db.As(customer);
+
+        var result = await actor.Orders.PlaceAsync(customer, itemId, 1);
+
+        Assert.False(result.Ok);
+        Assert.Equal(0, await _db.OrderCountAsync());
+        Assert.Equal(5, await _db.StockAsync(itemId));
+    }
+
     [Fact]
     public async Task Place_Valid_DeductsStock_AndUsesServerSidePriceAndShop()
     {
