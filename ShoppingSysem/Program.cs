@@ -1,8 +1,8 @@
-
 using System.ComponentModel.DataAnnotations;
 using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Components.Server;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
@@ -36,7 +36,20 @@ var connectionString = builder.Configuration
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+if (builder.Environment.IsDevelopment())
+{
+    // The database developer page includes SQL text and other internal details.
+    builder.Services.AddDatabaseDeveloperPageExceptionFilter();
+}
+else
+{
+    // DetailedErrors in configuration must not reveal circuit exception
+    // messages or stack traces outside Development.
+    builder.Services.PostConfigure<CircuitOptions>(options =>
+    {
+        options.DetailedErrors = false;
+    });
+}
 
 // Limit account-related form submissions without throttling ordinary app traffic.
 builder.Services.AddRateLimiter(options =>
@@ -248,6 +261,21 @@ else
         createScopeForErrors: true);
 
     app.UseHsts();
+
+    // Off unless a test explicitly enables it. The marker must never appear
+    // in a client response; the exception handler logs it server-side only.
+    if (app.Configuration.GetValue<bool>("Testing:EnableExceptionProbe"))
+    {
+        app.Use(async (context, next) =>
+        {
+            if (context.Request.Path.StartsWithSegments("/__test/throw"))
+            {
+                throw new InvalidOperationException("phase1-exception-marker");
+            }
+
+            await next();
+        });
+    }
 }
 app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();

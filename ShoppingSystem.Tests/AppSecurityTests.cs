@@ -13,7 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using ShoppingSysem.Data;
 using Xunit;
-
+using Microsoft.AspNetCore.Components.Server;
+using Microsoft.AspNetCore.Diagnostics;
+using Microsoft.Extensions.Logging;
 namespace ShoppingSystem.Tests;
 
 // Runs the real Program.cs against a temporary SQLite database. Program.cs reads
@@ -566,5 +568,150 @@ public sealed class RateLimitingTests(AppFixture app) : IClassFixture<AppFixture
 
         // The ordinary route may return 404, but it must not be rejected by the limiter.
         Assert.NotEqual(StatusCodes.Status429TooManyRequests, context.Response.StatusCode);
+    }
+}
+[Collection("AppStartup")]
+public sealed class ProductionErrorHandlingTests : IDisposable
+{
+    private const string Marker = "phase1-exception-marker";
+
+    private readonly TestDb _db = new();
+    private readonly ProductionShopFactory _factory;
+    private readonly CapturingLoggerProvider _logs = new();
+
+    public ProductionErrorHandlingTests()
+    {
+        using var env = new ProvisioningEnv(false, null, null);
+        _factory = new ProductionShopFactory(_db.ConnectionString, _logs);
+        _ = _factory.Services;
+    }
+
+    public void Dispose()
+    {
+        _factory.Dispose();
+        _db.Dispose();
+    }
+
+    [Fact]
+    public void Development_RegistersDatabaseDeveloperPageExceptionFilter()
+    {
+        using var env = new ProvisioningEnv(false, null, null);
+        using var factory = new ShopFactory(_db.ConnectionString);
+
+        var filters = factory.Services.GetServices<IDeveloperPageExceptionFilter>();
+        Assert.Contains(filters, filter =>
+            filter.GetType().Name == "DatabaseDeveloperPageExceptionFilter");
+    }
+
+    [Fact]
+    public void Production_DoesNotRegisterDatabaseDeveloperPageExceptionFilter()
+    {
+        var filters = _factory.Services.GetServices<IDeveloperPageExceptionFilter>();
+        Assert.DoesNotContain(filters, filter =>
+            filter.GetType().Name == "DatabaseDeveloperPageExceptionFilter");
+    }
+
+    [Fact]
+    public void Production_ForcesCircuitDetailedErrorsOff_EvenWhenConfigured()
+    {
+        var options = _factory.Services.GetRequiredService<IOptions<CircuitOptions>>().Value;
+        Assert.False(options.DetailedErrors);
+    }
+
+    [Fact]
+    public async Task Production_UnhandledException_DoesNotExposeInternals_AndIsLogged()
+    {
+        using var client = _factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        using var response = await client.GetAsync("/__test/throw");
+        var body = await response.Content.ReadAsStringAsync();
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Contains("An error occurred while processing your request.", body);
+        Assert.DoesNotContain(Marker, body);
+        Assert.DoesNotContain("InvalidOperationException", body);
+        Assert.DoesNotContain("SqlException", body);
+        Assert.DoesNotContain("stack trace", body, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("at ShoppingSysem", body);
+        Assert.DoesNotContain("DefaultConnection", body);
+        Assert.DoesNotContain("Password=", body, StringComparison.OrdinalIgnoreCase);
+
+        var headerText = string.Join("\n", response.Headers.Select(h => $"{h.Key}: {string.Join(",", h.Value)}"));
+        Assert.DoesNotContain(Marker, headerText);
+
+        Assert.Contains(_logs.Lines, line =>
+            line.Contains("Error", StringComparison.Ordinal) &&
+            line.Contains(Marker, StringComparison.Ordinal));
+    }
+
+    private sealed class ProductionShopFactory : WebApplicationFactory<Program>
+    {
+        private readonly string _connectionString;
+        private readonly ILoggerProvider _logs;
+
+        public ProductionShopFactory(string connectionString, ILoggerProvider logs)
+        {
+            _connectionString = connectionString;
+            _logs = logs;
+        }
+
+        protected override void ConfigureWebHost(IWebHostBuilder builder)
+        {
+            builder.UseEnvironment("Production");
+            builder.UseSetting("Smtp:Host", "smtp.invalid");
+            builder.UseSetting("Smtp:FromAddress", "noreply@example.invalid");
+            builder.UseSetting("DetailedErrors", "true");
+            builder.UseSetting("Testing:EnableExceptionProbe", "true");
+            builder.ConfigureLogging(logging =>
+            {
+                logging.AddProvider(_logs);
+            });
+            builder.ConfigureServices(services =>
+            {
+                var remove = services.Where(d =>
+                    d.ServiceType == typeof(DbContextOptions<ApplicationDbContext>) ||
+                    d.ServiceType == typeof(DbContextOptions) ||
+                    (d.ServiceType.IsGenericType &&
+                     d.ServiceType.Name.StartsWith("IDbContextOptionsConfiguration") &&
+                     d.ServiceType.GenericTypeArguments.Contains(typeof(ApplicationDbContext))))
+                    .ToList();
+
+                foreach (var descriptor in remove)
+                    services.Remove(descriptor);
+
+                services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite(_connectionString));
+            });
+        }
+    }
+
+    private sealed class CapturingLoggerProvider : ILoggerProvider
+    {
+        public List<string> Lines { get; } = new();
+
+        public ILogger CreateLogger(string categoryName) => new Capture(Lines);
+
+        public void Dispose()
+        {
+        }
+
+        private sealed class Capture(List<string> lines) : ILogger
+        {
+            public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+            public bool IsEnabled(LogLevel logLevel) => true;
+
+            public void Log<TState>(
+                LogLevel level,
+                EventId id,
+                TState state,
+                Exception? exception,
+                Func<TState, Exception?, string> formatter)
+            {
+                lines.Add($"{level}: {formatter(state, exception)} {exception}");
+            }
+        }
     }
 }
