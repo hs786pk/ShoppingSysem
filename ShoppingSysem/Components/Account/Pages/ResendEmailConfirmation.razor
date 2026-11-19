@@ -47,10 +47,13 @@
 
     private async Task OnValidSubmitAsync()
     {
+        const string genericResponse =
+            "If an account exists for that email address, confirmation instructions may be sent. Please check your inbox.";
+
         var user = await UserManager.FindByEmailAsync(Input.Email!);
         if (user is null)
         {
-            message = "Verification email sent. Please check your email.";
+            message = genericResponse;
             return;
         }
 
@@ -67,10 +70,10 @@
         catch (EmailDeliveryException)
         {
             // Same response either way so the page never reveals whether an account exists.
-            Logger.LogWarning("Confirmation email could not be delivered for user {UserId}.", user.Id);
+            Logger.LogWarning("A confirmation email could not be delivered.");
         }
 
-        message = "Verification email sent. Please check your email.";
+        message = genericResponse;
     }
 
     private sealed class InputModel

@@ -2,6 +2,7 @@
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
@@ -367,5 +368,113 @@ public sealed class IdentitySecurityTests(AppFixture app) : IClassFixture<AppFix
         }
 
         return fields;
+    }
+}
+
+[Collection("AppStartup")]
+public sealed class RateLimitingTests(AppFixture app) : IClassFixture<AppFixture>
+{
+    private async Task<(string Token, string Cookie)> GetAntiforgeryAsync()
+    {
+        using var client = app.Factory.CreateClient(
+            new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        using var response = await client.GetAsync("/Account/Register");
+        response.EnsureSuccessStatusCode();
+
+        var html = await response.Content.ReadAsStringAsync();
+        var tokenMatch = Regex.Match(
+            html,
+            "<input[^>]*name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+
+        Assert.True(tokenMatch.Success, "The registration page did not render an antiforgery token.");
+        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var setCookieHeaders),
+            "The registration page did not issue an antiforgery cookie.");
+
+        var cookies = setCookieHeaders!
+            .Select(header => header.Split(';', 2)[0])
+            .ToArray();
+
+        Assert.NotEmpty(cookies);
+        return (WebUtility.HtmlDecode(tokenMatch.Groups[1].Value), string.Join("; ", cookies));
+    }
+
+    private async Task<int> SendPostAsync(
+        string path,
+        IPAddress remoteIp,
+        string token,
+        string cookie)
+    {
+        var form = "returnUrl=%2F&__RequestVerificationToken=" +
+            Uri.EscapeDataString(token);
+        var body = Encoding.UTF8.GetBytes(form);
+
+        var context = await app.Factory.Server.SendAsync(httpContext =>
+        {
+            httpContext.Connection.RemoteIpAddress = remoteIp;
+            httpContext.Request.Method = HttpMethods.Post;
+            httpContext.Request.Path = path;
+            httpContext.Request.ContentType = "application/x-www-form-urlencoded";
+            httpContext.Request.ContentLength = body.Length;
+            httpContext.Request.Body = new MemoryStream(body);
+            httpContext.Request.Headers.Cookie = cookie;
+        });
+
+        return context.Response.StatusCode;
+    }
+
+    [Fact]
+    public async Task AccountPosts_BelowLimit_AreNotRateLimited()
+    {
+        var (token, cookie) = await GetAntiforgeryAsync();
+        var ip = IPAddress.Parse("192.0.2.41");
+
+        for (var request = 0; request < 20; request++)
+        {
+            var status = await SendPostAsync("/Account/Logout", ip, token, cookie);
+            Assert.NotEqual(StatusCodes.Status429TooManyRequests, status);
+        }
+    }
+
+    [Fact]
+    public async Task AccountPosts_AboveLimit_ReturnHttp429()
+    {
+        var (token, cookie) = await GetAntiforgeryAsync();
+        var ip = IPAddress.Parse("192.0.2.42");
+
+        for (var request = 0; request < 20; request++)
+            _ = await SendPostAsync("/Account/Logout", ip, token, cookie);
+
+        var status = await SendPostAsync("/Account/Logout", ip, token, cookie);
+        Assert.Equal(StatusCodes.Status429TooManyRequests, status);
+    }
+
+    [Fact]
+    public async Task AccountPosts_FromDifferentIps_HaveIndependentLimits()
+    {
+        var (token, cookie) = await GetAntiforgeryAsync();
+        var firstIp = IPAddress.Parse("192.0.2.43");
+        var secondIp = IPAddress.Parse("192.0.2.44");
+
+        for (var request = 0; request < 20; request++)
+            _ = await SendPostAsync("/Account/Logout", firstIp, token, cookie);
+
+        var secondIpStatus = await SendPostAsync("/Account/Logout", secondIp, token, cookie);
+        Assert.NotEqual(StatusCodes.Status429TooManyRequests, secondIpStatus);
+    }
+
+    [Fact]
+    public async Task OrdinaryShoppingPosts_AreNotRateLimited()
+    {
+        var ip = IPAddress.Parse("192.0.2.45");
+        var context = await app.Factory.Server.SendAsync(httpContext =>
+        {
+            httpContext.Connection.RemoteIpAddress = ip;
+            httpContext.Request.Method = HttpMethods.Post;
+            httpContext.Request.Path = "/not-a-real-shopping-post";
+        });
+
+        // The ordinary route may return 404, but it must not be rejected by the limiter.
+        Assert.NotEqual(StatusCodes.Status429TooManyRequests, context.Response.StatusCode);
     }
 }
