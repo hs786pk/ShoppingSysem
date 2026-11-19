@@ -47,7 +47,7 @@ public sealed class Actor : IDisposable
         var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
 
         Orders = new OrderService(db, auth, users, NullLogger<OrderService>.Instance);
-        Recs = new RecommendationService(db, auth, users);
+        Recs = new RecommendationService(db, auth, users, NullLogger<RecommendationService>.Instance);
     }
 
     public void Dispose() => _scope.Dispose();
@@ -69,9 +69,9 @@ public sealed class TestDb : IDisposable
         services.AddDbContext<ApplicationDbContext>(o => o.UseSqlite($"Data Source={_path}"));
         services.AddScoped<AuthenticationStateProvider, FakeAuthProvider>();
         services.AddIdentityCore<ApplicationUser>(o =>
-            {
-                o.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
-            })
+        {
+            o.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+        })
             .AddRoles<IdentityRole>()
             .AddEntityFrameworkStores<ApplicationDbContext>();
 
