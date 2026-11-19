@@ -47,7 +47,19 @@ namespace Microsoft.AspNetCore.Routing
                 [FromForm] string returnUrl) =>
             {
                 await signInManager.SignOutAsync();
-                return TypedResults.LocalRedirect($"~/{returnUrl}");
+
+                // Only allow a local relative path; reject absolute and protocol-relative URLs.
+                var target = string.IsNullOrWhiteSpace(returnUrl) ? "/" : returnUrl.Trim();
+                if (target.StartsWith('/') &&
+                    !target.StartsWith("//", StringComparison.Ordinal) &&
+                    !target.Contains('\\') &&
+                    !target.Contains("://", StringComparison.Ordinal) &&
+                    Uri.IsWellFormedUriString(target, UriKind.Relative))
+                {
+                    return TypedResults.LocalRedirect($"~{target}");
+                }
+
+                return TypedResults.LocalRedirect("~/");
             });
 
             accountGroup.MapPost("/PasskeyCreationOptions", async (

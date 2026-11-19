@@ -10,6 +10,7 @@ namespace ShoppingSysem.Components.Pages
     public partial class SalesHistory
     {
         [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
+        [Inject] private ILogger<SalesHistory> Logger { get; set; } = default!;
 
         List<Sale> sales = new();
         long totalItemsSold = 0;
@@ -22,20 +23,31 @@ namespace ShoppingSysem.Components.Pages
 
             if (user is null || !await UserManager.IsInRoleAsync(user, "Shopkeeper"))
             {
+                Logger.LogWarning(
+                    "Sales history denied for user {UserId}.",
+                    user?.Id ?? "anonymous");
                 sales = new();
                 return;
             }
 
-            sales = await DbContext.Sales
-                .AsNoTracking()
-                .Where(s => s.ShopkeeperId == user.Id)
-                .Include(s => s.Shop)
-                .Include(s => s.Item)
-                .OrderByDescending(s => s.SaleDate)
-                .ToListAsync();
+            try
+            {
+                sales = await DbContext.Sales
+                    .AsNoTracking()
+                    .Where(s => s.ShopkeeperId == user.Id)
+                    .Include(s => s.Shop)
+                    .Include(s => s.Item)
+                    .OrderByDescending(s => s.SaleDate)
+                    .ToListAsync();
 
-            totalItemsSold = sales.Sum(s => (long)s.QuantitySold);
-            totalRevenue = sales.Sum(s => s.TotalPrice);
+                totalItemsSold = sales.Sum(s => (long)s.QuantitySold);
+                totalRevenue = sales.Sum(s => s.TotalPrice);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to load sales history for shopkeeper {UserId}.", user.Id);
+                sales = new();
+            }
         }
     }
 }

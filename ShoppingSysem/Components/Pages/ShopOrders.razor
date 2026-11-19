@@ -91,7 +91,7 @@ else
 
     private async Task Act(int orderId, bool fulfill)
     {
-        if (busy || string.IsNullOrEmpty(userId)) return;
+        if (busy || string.IsNullOrEmpty(userId) || orderId <= 0) return;
         busy = true;
         try
         {
@@ -101,6 +101,11 @@ else
             message = result.Message;
             messageIsError = !result.Ok;
             await Reload();
+        }
+        catch (Exception)
+        {
+            message = "We could not update the order. Please try again.";
+            messageIsError = true;
         }
         finally
         {

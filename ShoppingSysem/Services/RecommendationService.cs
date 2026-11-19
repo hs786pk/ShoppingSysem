@@ -30,15 +30,18 @@ public class RecommendationService : IRecommendationService
     private readonly ApplicationDbContext _db;
     private readonly AuthenticationStateProvider _authStateProvider;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly ILogger<RecommendationService> _logger;
 
     public RecommendationService(
         ApplicationDbContext db,
         AuthenticationStateProvider authStateProvider,
-        UserManager<ApplicationUser> userManager)
+        UserManager<ApplicationUser> userManager,
+        ILogger<RecommendationService> logger)
     {
         _db = db;
         _authStateProvider = authStateProvider;
         _userManager = userManager;
+        _logger = logger;
     }
 
     private async Task<bool> CanAccessUserAsync(string userId)
@@ -53,11 +56,26 @@ public class RecommendationService : IRecommendationService
 
         var currentUser = await _userManager.GetUserAsync(state.User);
 
-        if (currentUser is null || currentUser.Id != userId)
+        if (currentUser is null)
             return false;
 
-        return await _userManager.IsInRoleAsync(currentUser, "Customer")
-            || await _userManager.IsInRoleAsync(currentUser, "Admin");
+        if (currentUser.Id != userId)
+        {
+            _logger.LogWarning(
+                "Recommendation access denied: caller {CallerId} requested user {RequestedId}.",
+                currentUser.Id,
+                userId);
+            return false;
+        }
+
+        if (await _userManager.IsInRoleAsync(currentUser, "Customer")
+            || await _userManager.IsInRoleAsync(currentUser, "Admin"))
+            return true;
+
+        _logger.LogWarning(
+            "Recommendation access denied: user {UserId} lacks Customer/Admin role.",
+            currentUser.Id);
+        return false;
     }
 
     public async Task RecordAsync(string userId, int itemId, InteractionType type)
@@ -69,32 +87,45 @@ public class RecommendationService : IRecommendationService
         if (itemId <= 0 || type is not (InteractionType.View or InteractionType.Wishlist))
             return;
 
-        var item = await _db.Items
-            .AsNoTracking()
-            .FirstOrDefaultAsync(i => i.Id == itemId);
-
-        if (item is null)
-            return;
-
-        // Ignore repeats of the same action within 5 minutes.
-        var since = DateTime.UtcNow.AddMinutes(-5);
-        if (await _db.CustomerInterests.AnyAsync(i =>
-                i.UserId == userId && i.ItemId == itemId &&
-                i.Type == type && i.CreatedAt > since))
-            return;
-
-        _db.CustomerInterests.Add(new CustomerInterest
+        try
         {
-            UserId = userId,
-            ItemId = itemId,
-            Category = string.IsNullOrWhiteSpace(item.Category)
-                ? "General"
-                : item.Category!,
-            Type = type,
-            CreatedAt = DateTime.UtcNow
-        });
+            var item = await _db.Items
+                .AsNoTracking()
+                .FirstOrDefaultAsync(i => i.Id == itemId);
 
-        await _db.SaveChangesAsync();
+            if (item is null)
+                return;
+
+            // Ignore repeats of the same action within 5 minutes.
+            var since = DateTime.UtcNow.AddMinutes(-5);
+            if (await _db.CustomerInterests.AnyAsync(i =>
+                    i.UserId == userId && i.ItemId == itemId &&
+                    i.Type == type && i.CreatedAt > since))
+                return;
+
+            _db.CustomerInterests.Add(new CustomerInterest
+            {
+                UserId = userId,
+                ItemId = itemId,
+                Category = string.IsNullOrWhiteSpace(item.Category)
+                    ? "General"
+                    : item.Category!,
+                Type = type,
+                CreatedAt = DateTime.UtcNow
+            });
+
+            await _db.SaveChangesAsync();
+        }
+        catch (Exception ex) when (ex is DbUpdateException or System.Data.Common.DbException)
+        {
+            _db.ChangeTracker.Clear();
+            _logger.LogError(
+                ex,
+                "Failed to record interest for user {UserId}, item {ItemId}, type {Type}.",
+                userId,
+                itemId,
+                type);
+        }
     }
 
     public async Task<List<ScoredItem>> GetRecommendationsAsync(string userId, int take = 12)

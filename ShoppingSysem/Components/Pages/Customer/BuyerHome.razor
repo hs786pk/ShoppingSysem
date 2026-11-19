@@ -45,7 +45,9 @@
             <span>@recommended.Count picks</span>
         </div>
         <div class="catalog shelf-picked">
-            @{ var n = 0; }
+            @{
+                var n = 0;
+            }
             @foreach (var r in recommended)
             {
                 n++;
@@ -67,7 +69,9 @@
     else
     {
         <div class="catalog">
-            @{ var n = 0; }
+            @{
+                var n = 0;
+            }
             @foreach (var item in filtered)
             {
                 n++;
@@ -144,23 +148,31 @@
 
     private async Task Act(Item item, InteractionType type)
     {
-        if (string.IsNullOrEmpty(userId)) return;
+        if (string.IsNullOrEmpty(userId) || item.Id <= 0) return;
 
-        await Recommender.RecordAsync(userId, item.Id, type);
-
-        messageIsError = false;
-        message = type switch
+        try
         {
-            InteractionType.Wishlist => $"{item.Name} saved.",
-            _ => $"Viewing {item.Name}."
-        };
+            await Recommender.RecordAsync(userId, item.Id, type);
 
-        await LoadRecommendations();
+            messageIsError = false;
+            message = type switch
+            {
+                InteractionType.Wishlist => $"{item.Name} saved.",
+                _ => $"Viewing {item.Name}."
+            };
+
+            await LoadRecommendations();
+        }
+        catch (Exception)
+        {
+            messageIsError = true;
+            message = "Could not record that action. Please try again.";
+        }
     }
 
     private async Task Buy(Item item)
     {
-        if (busy || string.IsNullOrEmpty(userId) || item.Stock <= 0) return;
+        if (busy || string.IsNullOrEmpty(userId) || item.Id <= 0 || item.Stock <= 0) return;
 
         busy = true;
         try
@@ -171,6 +183,11 @@
 
             await ReloadItems();
             await LoadRecommendations();
+        }
+        catch (Exception)
+        {
+            messageIsError = true;
+            message = "We could not place your order. Please try again.";
         }
         finally
         {
