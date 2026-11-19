@@ -715,3 +715,210 @@ public sealed class ProductionErrorHandlingTests : IDisposable
         }
     }
 }
+
+[Collection("AppStartup")]
+public sealed class ForwardedHeadersRateLimitTests : IDisposable
+{
+    private readonly TestDb _db = new();
+
+    public void Dispose() => _db.Dispose();
+
+    [Fact]
+    public async Task SpoofedForwardedFor_DoesNotBypassTheAccountLimit()
+    {
+        using var factory = Start();
+        var (token, cookie) = await GetAntiforgeryAsync(factory);
+        var remote = IPAddress.Parse("192.0.2.60");
+
+        for (var i = 0; i < 20; i++)
+        {
+            var status = await PostLogoutAsync(factory, remote, $"198.51.100.{i + 1}", token, cookie);
+            Assert.NotEqual(StatusCodes.Status429TooManyRequests, status);
+        }
+
+        var blocked = await PostLogoutAsync(factory, remote, "198.51.100.250", token, cookie);
+        Assert.Equal(StatusCodes.Status429TooManyRequests, blocked);
+    }
+
+    [Fact]
+    public async Task TrustedProxy_UsesForwardedFor_AndKeepsClientBucketsSeparate()
+    {
+        using var factory = Start(proxy: "10.0.0.8");
+        var (token, cookie) = await GetAntiforgeryAsync(factory);
+        var proxy = IPAddress.Parse("10.0.0.8");
+        const string clientA = "198.51.100.10";
+        const string clientB = "198.51.100.11";
+
+        for (var i = 0; i < 20; i++)
+            Assert.NotEqual(StatusCodes.Status429TooManyRequests,
+                await PostLogoutAsync(factory, proxy, clientA, token, cookie));
+
+        Assert.Equal(StatusCodes.Status429TooManyRequests,
+            await PostLogoutAsync(factory, proxy, clientA, token, cookie));
+        Assert.NotEqual(StatusCodes.Status429TooManyRequests,
+            await PostLogoutAsync(factory, proxy, clientB, token, cookie));
+    }
+
+    [Fact]
+    public async Task UnlistedRemoteAddress_CannotSupplyItsOwnClientIp()
+    {
+        using var factory = Start(proxy: "10.0.0.8");
+        var (token, cookie) = await GetAntiforgeryAsync(factory);
+        var attacker = IPAddress.Parse("192.0.2.77");
+
+        for (var i = 0; i < 20; i++)
+            Assert.NotEqual(StatusCodes.Status429TooManyRequests,
+                await PostLogoutAsync(factory, attacker, $"203.0.113.{i + 1}", token, cookie));
+
+        Assert.Equal(StatusCodes.Status429TooManyRequests,
+            await PostLogoutAsync(factory, attacker, "203.0.113.200", token, cookie));
+    }
+
+    [Fact]
+    public async Task TrustedNetwork_UsesForwardedFor()
+    {
+        using var factory = Start(network: "10.0.0.0/8");
+        var (token, cookie) = await GetAntiforgeryAsync(factory);
+        var proxy = IPAddress.Parse("10.4.5.6");
+
+        for (var i = 0; i < 20; i++)
+            Assert.NotEqual(StatusCodes.Status429TooManyRequests,
+                await PostLogoutAsync(factory, proxy, "198.51.100.20", token, cookie));
+
+        Assert.Equal(StatusCodes.Status429TooManyRequests,
+            await PostLogoutAsync(factory, proxy, "198.51.100.20", token, cookie));
+        Assert.NotEqual(StatusCodes.Status429TooManyRequests,
+            await PostLogoutAsync(factory, proxy, "198.51.100.21", token, cookie));
+    }
+
+    [Fact]
+    public async Task ForwardedHeaders_AreAppliedOnlyForTheConfiguredProxy()
+    {
+        using var untrusted = Start();
+        var ignored = await SendAsync(untrusted, "192.0.2.9", "203.0.113.9", "https", "evil.example");
+        Assert.Equal("http", ignored.Request.Scheme);
+        Assert.Equal(IPAddress.Parse("192.0.2.9"), ignored.Connection.RemoteIpAddress);
+        Assert.Equal("shop.example", ignored.Request.Host.Host);
+
+        using var trusted = Start(proxy: "10.0.0.8");
+        var applied = await SendAsync(trusted, "10.0.0.8", "203.0.113.8, 198.51.100.30", "https", "evil.example");
+        Assert.Equal("https", applied.Request.Scheme);
+        Assert.Equal(IPAddress.Parse("198.51.100.30"), applied.Connection.RemoteIpAddress);
+        Assert.Equal("shop.example", applied.Request.Host.Host);
+
+        var rejected = await SendAsync(trusted, "192.0.2.9", "203.0.113.8", "https", "evil.example");
+        Assert.Equal("http", rejected.Request.Scheme);
+        Assert.Equal(IPAddress.Parse("192.0.2.9"), rejected.Connection.RemoteIpAddress);
+    }
+
+    [Theory]
+    [InlineData("not-an-ip", null, null, "KnownProxies")]
+    [InlineData(null, "not-a-network", null, "KnownNetworks")]
+    [InlineData(null, "0.0.0.0/0", null, "match-all")]
+    [InlineData(null, null, "0", "ForwardLimit")]
+    public void InvalidForwardedHeaderConfiguration_StopsStartup(
+        string? proxy, string? network, string? forwardLimit, string expected)
+    {
+        using var admin = new ProvisioningEnv(false, null, null);
+        using var forwarded = new ForwardedEnv(proxy, network, forwardLimit);
+        using var factory = new ShopFactory(_db.ConnectionString);
+
+        var ex = Assert.ThrowsAny<Exception>(() => { _ = factory.Services; });
+        var messages = new StringBuilder();
+        for (Exception? e = ex; e is not null; e = e.InnerException)
+            messages.AppendLine(e.Message);
+
+        Assert.Contains(expected, messages.ToString());
+    }
+
+    private ShopFactory Start(string? proxy = null, string? network = null)
+    {
+        using var admin = new ProvisioningEnv(false, null, null);
+        using var forwarded = new ForwardedEnv(proxy, network, null);
+        var factory = new ShopFactory(_db.ConnectionString);
+        _ = factory.Services;
+        return factory;
+    }
+
+    private static async Task<(string Token, string Cookie)> GetAntiforgeryAsync(WebApplicationFactory<Program> factory)
+    {
+        using var client = factory.CreateClient(new WebApplicationFactoryClientOptions
+        {
+            AllowAutoRedirect = false
+        });
+
+        using var response = await client.GetAsync("/Account/Register");
+        response.EnsureSuccessStatusCode();
+        var html = await response.Content.ReadAsStringAsync();
+        var tokenMatch = Regex.Match(html, "name=\"__RequestVerificationToken\"[^>]*value=\"([^\"]+)\"");
+        Assert.True(tokenMatch.Success);
+        Assert.True(response.Headers.TryGetValues("Set-Cookie", out var setCookie));
+        var cookies = setCookie!.Select(header => header.Split(';', 2)[0]);
+        return (WebUtility.HtmlDecode(tokenMatch.Groups[1].Value), string.Join("; ", cookies));
+    }
+
+    private static Task<int> PostLogoutAsync(
+        WebApplicationFactory<Program> factory,
+        IPAddress remoteIp,
+        string? forwardedFor,
+        string token,
+        string cookie)
+    {
+        return SendAsync(factory, remoteIp.ToString(), forwardedFor, null, null, token, cookie)
+            .ContinueWith(task => task.Result.Response.StatusCode);
+    }
+
+    private static Task<HttpContext> SendAsync(
+        WebApplicationFactory<Program> factory,
+        string remoteIp,
+        string? forwardedFor,
+        string? forwardedProto,
+        string? forwardedHost,
+        string? token = null,
+        string? cookie = null)
+    {
+        var body = token is null
+            ? Array.Empty<byte>()
+            : Encoding.UTF8.GetBytes("returnUrl=%2F&__RequestVerificationToken=" + Uri.EscapeDataString(token));
+
+        return factory.Server.SendAsync(http =>
+        {
+            http.Connection.RemoteIpAddress = IPAddress.Parse(remoteIp);
+            http.Request.Scheme = "http";
+            http.Request.Host = new HostString("shop.example");
+            http.Request.Method = token is null ? HttpMethods.Get : HttpMethods.Post;
+            http.Request.Path = token is null ? "/" : "/Account/Logout";
+            if (token is not null)
+            {
+                http.Request.ContentType = "application/x-www-form-urlencoded";
+                http.Request.ContentLength = body.Length;
+                http.Request.Body = new MemoryStream(body);
+                http.Request.Headers.Cookie = cookie;
+            }
+
+            if (forwardedFor is not null)
+                http.Request.Headers["X-Forwarded-For"] = forwardedFor;
+            if (forwardedProto is not null)
+                http.Request.Headers["X-Forwarded-Proto"] = forwardedProto;
+            if (forwardedHost is not null)
+                http.Request.Headers["X-Forwarded-Host"] = forwardedHost;
+        });
+    }
+
+    private sealed class ForwardedEnv : IDisposable
+    {
+        public ForwardedEnv(string? proxy, string? network, string? forwardLimit)
+        {
+            Environment.SetEnvironmentVariable("ForwardedHeaders__KnownProxies__0", proxy);
+            Environment.SetEnvironmentVariable("ForwardedHeaders__KnownNetworks__0", network);
+            Environment.SetEnvironmentVariable("ForwardedHeaders__ForwardLimit", forwardLimit);
+        }
+
+        public void Dispose()
+        {
+            Environment.SetEnvironmentVariable("ForwardedHeaders__KnownProxies__0", null);
+            Environment.SetEnvironmentVariable("ForwardedHeaders__KnownNetworks__0", null);
+            Environment.SetEnvironmentVariable("ForwardedHeaders__ForwardLimit", null);
+        }
+    }
+}

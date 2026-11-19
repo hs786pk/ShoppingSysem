@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-using System.Threading.RateLimiting;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Components.Server;
@@ -9,6 +7,9 @@ using Microsoft.EntityFrameworkCore;
 using ShoppingSysem.Components;
 using ShoppingSysem.Components.Account;
 using ShoppingSysem.Data;
+using System.ComponentModel.DataAnnotations;
+using System.Net;
+using System.Threading.RateLimiting;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -130,6 +131,69 @@ builder.Services.AddScoped<
     ShoppingSysem.Services.IOrderService,
     ShoppingSysem.Services.OrderService>();
 
+
+// Trust X-Forwarded-For / X-Forwarded-Proto only from configured proxies.
+// With no entries, the headers are ignored so a client cannot spoof its IP.
+var forwardedSection = builder.Configuration.GetSection("ForwardedHeaders");
+var forwardLimit = forwardedSection.GetValue("ForwardLimit", 1);
+if (forwardLimit < 1)
+{
+    throw new InvalidOperationException(
+        "ForwardedHeaders:ForwardLimit must be at least 1.");
+}
+
+var knownProxies = new List<IPAddress>();
+foreach (var value in forwardedSection.GetSection("KnownProxies").Get<string[]>() ?? [])
+{
+    var text = value?.Trim();
+    if (string.IsNullOrEmpty(text) || !IPAddress.TryParse(text, out var proxyIp))
+    {
+        throw new InvalidOperationException(
+            "ForwardedHeaders:KnownProxies contains an invalid IP address.");
+    }
+
+    knownProxies.Add(proxyIp);
+}
+
+var knownNetworks = new List<System.Net.IPNetwork>();
+foreach (var value in forwardedSection.GetSection("KnownNetworks").Get<string[]>() ?? [])
+{
+    var text = value?.Trim();
+    if (string.IsNullOrEmpty(text) || !System.Net.IPNetwork.TryParse(text, out var network))
+    {
+        throw new InvalidOperationException(
+            "ForwardedHeaders:KnownNetworks contains an invalid CIDR network.");
+    }
+
+    if (network.PrefixLength == 0)
+    {
+        throw new InvalidOperationException(
+            "ForwardedHeaders:KnownNetworks must not be a match-all network.");
+    }
+
+    knownNetworks.Add(network);
+}
+
+var trustForwardedHeaders = knownProxies.Count > 0 || knownNetworks.Count > 0;
+if (trustForwardedHeaders)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders =
+            Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedFor |
+            Microsoft.AspNetCore.HttpOverrides.ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = forwardLimit;
+        options.KnownProxies.Clear();
+        options.KnownIPNetworks.Clear();
+
+        foreach (var proxyIp in knownProxies)
+            options.KnownProxies.Add(proxyIp);
+
+        foreach (var network in knownNetworks)
+            options.KnownIPNetworks.Add(network);
+    });
+}
+
 var app = builder.Build();
 
 // Email confirmation is mandatory, so outside Development a missing SMTP
@@ -248,7 +312,10 @@ if (app.Configuration.GetValue<bool>("AdminProvisioning:Enabled"))
             "has been refused.");
     }
 }
-
+// Configure the HTTP request pipeline.
+// Only after KnownProxies / KnownNetworks are non-empty. Loopback is not trusted implicitly.
+if (trustForwardedHeaders)
+    app.UseForwardedHeaders();
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
