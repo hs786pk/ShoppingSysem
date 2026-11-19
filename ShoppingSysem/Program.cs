@@ -258,7 +258,9 @@ app.Use(async (context, next) =>
 {
     var headers = context.Response.Headers;
     headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "DENY";
     headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()";
     // Blocks clickjacking and plugin content. Scripts and styles are unrestricted,
     // so Blazor's inline scripts keep working.
     headers["Content-Security-Policy"] =
