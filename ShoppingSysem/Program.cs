@@ -335,7 +335,8 @@ if (app.Configuration.GetValue<bool>("AdminProvisioning:Enabled"))
         }
 
         app.Logger.LogInformation(
-            "Initial administrator account provisioned successfully.");
+            "Initial administrator account provisioned for user {UserId}.",
+            adminUser.Id);
     }
     else if (!await userManager.IsInRoleAsync(existingAdmin, AppRoles.Admin))
     {

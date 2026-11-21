@@ -66,8 +66,10 @@ internal sealed class DevelopmentEmailSender(
 
         await File.WriteAllTextAsync(path, html.ToString(), Encoding.UTF8);
 
+        // Log subject and user id only. The file path may embed the recipient
+        // address; keep that out of structured logs outside Development use.
         logger.LogInformation(
-            "Development email captured. Subject '{Subject}' for user {UserId} written to {Path}",
-            subject, userId, path);
+            "Development email captured. Subject '{Subject}' for user {UserId}.",
+            subject, userId);
     }
 }

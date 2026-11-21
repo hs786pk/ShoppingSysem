@@ -101,34 +101,34 @@
             return;
         }
 
-        Logger.LogInformation("User created a new account with password.");
+        var userId = await UserManager.GetUserIdAsync(user);
+        Logger.LogInformation("User {UserId} registered a new Customer account.", userId);
 
-        // Everyone who registers here is a buyer. Shopkeepers are created by the admin.
-// Public registration must only create Customer accounts.
-// Shopkeeper and Admin accounts are managed separately.
-var roleResult = await UserManager.AddToRoleAsync(
-    user,
-    AppRoles.Customer);
+        // Public registration must only create Customer accounts.
+        // Shopkeeper and Admin accounts are managed separately.
+        var roleResult = await UserManager.AddToRoleAsync(
+            user,
+            AppRoles.Customer);
 
-if (!roleResult.Succeeded)
-{
-    identityErrors = roleResult.Errors;
+        if (!roleResult.Succeeded)
+        {
+            identityErrors = roleResult.Errors;
 
-    var cleanupResult = await UserManager.DeleteAsync(user);
+            var cleanupResult = await UserManager.DeleteAsync(user);
 
-    if (!cleanupResult.Succeeded)
-    {
-        Logger.LogCritical(
-            "Failed to clean up a newly registered account after Customer role assignment failed.");
-    }
+            if (!cleanupResult.Succeeded)
+            {
+                Logger.LogCritical(
+                    "Failed to clean up user {UserId} after Customer role assignment failed.",
+                    userId);
+            }
 
-    Logger.LogError(
-        "Customer role assignment failed during registration.");
+            Logger.LogError(
+                "Customer role assignment failed during registration for user {UserId}.",
+                userId);
 
-    return;
-}
-
-var userId = await UserManager.GetUserIdAsync(user);        
+            return;
+        }        
 var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
         code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
         var callbackUrl = NavigationManager.GetUriWithQueryParameters(

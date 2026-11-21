@@ -85,31 +85,38 @@
             return;
         }
 
-        // This doesn't count login failures towards account lockout
-        // To enable password failures to trigger account lockout, set lockoutOnFailure: true
+        // Resolve user id for audit logs only. Never log the password or email.
+        var user = await UserManager.FindByEmailAsync(Input.Email);
+        var userId = user?.Id ?? "unknown";
+
         var result = await SignInManager.PasswordSignInAsync(
             Input.Email,
             Input.Password,
             Input.RememberMe,
             lockoutOnFailure: true);
+
         if (result.Succeeded)
         {
-            Logger.LogInformation("User logged in.");
+            Logger.LogInformation("User {UserId} logged in.", userId);
             RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.RequiresTwoFactor)
         {
+            Logger.LogInformation("User {UserId} requires two-factor authentication.", userId);
             RedirectManager.RedirectTo(
                 "Account/LoginWith2fa",
                 new() { ["returnUrl"] = ReturnUrl, ["rememberMe"] = Input.RememberMe });
         }
         else if (result.IsLockedOut)
         {
-            Logger.LogWarning("User account locked out.");
+            Logger.LogWarning("User {UserId} account locked out.", userId);
             RedirectManager.RedirectTo("Account/Lockout");
         }
         else
         {
+            // Generic UI message; log only the id so failed attempts are auditable
+            // without confirming whether the email exists.
+            Logger.LogWarning("Invalid login attempt for user {UserId}.", userId);
             errorMessage = "Error: Invalid login attempt.";
         }
     }
