@@ -163,19 +163,14 @@ namespace ShoppingSysem.Components.Pages.Admin
                 return;
             }
 
-            var hasItems = await DbContext.Items
-                .AnyAsync(i => i.ShopId == existingShop.Id);
+            // Short-circuit dependency checks instead of always running all four.
+            var hasDependencies =
+                await DbContext.Items.AnyAsync(i => i.ShopId == existingShop.Id) ||
+                await DbContext.ShopAssignments.AnyAsync(a => a.ShopId == existingShop.Id) ||
+                await DbContext.Orders.AnyAsync(o => o.ShopId == existingShop.Id) ||
+                await DbContext.Sales.AnyAsync(s => s.ShopId == existingShop.Id);
 
-            var hasAssignments = await DbContext.ShopAssignments
-                .AnyAsync(a => a.ShopId == existingShop.Id);
-
-            var hasOrders = await DbContext.Orders
-                .AnyAsync(o => o.ShopId == existingShop.Id);
-
-            var hasSales = await DbContext.Sales
-                .AnyAsync(s => s.ShopId == existingShop.Id);
-
-            if (hasItems || hasAssignments || hasOrders || hasSales)
+            if (hasDependencies)
             {
                 errorMessage =
                     $"Cannot delete '{existingShop.Name}': it still has items, assignments, orders, or sales history.";

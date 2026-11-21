@@ -32,12 +32,16 @@ namespace ShoppingSysem.Components.Pages
 
             try
             {
+                // Recent window only; aggregates reflect the loaded page set.
+                const int maxSales = 500;
+
                 sales = await DbContext.Sales
                     .AsNoTracking()
                     .Where(s => s.ShopkeeperId == user.Id)
                     .Include(s => s.Shop)
                     .Include(s => s.Item)
                     .OrderByDescending(s => s.SaleDate)
+                    .Take(maxSales)
                     .ToListAsync();
 
                 totalItemsSold = sales.Sum(s => (long)s.QuantitySold);

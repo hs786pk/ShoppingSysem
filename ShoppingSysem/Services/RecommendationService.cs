@@ -137,9 +137,13 @@ public class RecommendationService : IRecommendationService
 
         var now = DateTime.UtcNow;
 
+        // Cap personal history so affinity scoring stays bounded.
+        const int maxHistory = 200;
         var history = await _db.CustomerInterests
             .AsNoTracking()
             .Where(i => i.UserId == userId)
+            .OrderByDescending(i => i.CreatedAt)
+            .Take(maxHistory)
             .Select(i => new { i.Category, i.Type, i.CreatedAt })
             .ToListAsync();
 
@@ -160,29 +164,29 @@ public class RecommendationService : IRecommendationService
             ? affinity.Values.Max()
             : 0;
 
-        var popRows = await _db.CustomerInterests
+        // Aggregate popularity in the database instead of materializing every row.
+        var popularity = await _db.CustomerInterests
             .AsNoTracking()
-            .GroupBy(i => new { i.ItemId, i.Type })
+            .GroupBy(i => i.ItemId)
             .Select(g => new
             {
-                g.Key.ItemId,
-                g.Key.Type,
-                Count = g.Count()
+                ItemId = g.Key,
+                Score = g.Sum(i =>
+                    i.Type == InteractionType.Purchase ? 5.0 :
+                    i.Type == InteractionType.Wishlist ? 3.0 : 1.0)
             })
-            .ToListAsync();
-
-        var popularity = popRows
-            .GroupBy(r => r.ItemId)
-            .ToDictionary(
-                g => g.Key,
-                g => g.Sum(r => r.Count * TypeWeight(r.Type)));
+            .ToDictionaryAsync(r => r.ItemId, r => r.Score);
 
         var maxPop = popularity.Count > 0
             ? popularity.Values.Max()
             : 0;
 
+        // Prefer in-stock items; still allow a small out-of-stock sample for ranking.
         var items = await _db.Items
             .AsNoTracking()
+            .OrderByDescending(i => i.Stock > 0)
+            .ThenBy(i => i.Name)
+            .Take(500)
             .ToListAsync();
 
         var hasHistory = maxAffinity > 0;

@@ -241,12 +241,16 @@ public class OrderService : IOrderService
             return new();
         }
 
+        // Cap list size so history growth cannot pull an unbounded result set.
+        const int maxOrders = 200;
+
         return await _db.Orders
             .AsNoTracking()
             .Where(o => o.CustomerId == currentUser.Id)
             .Include(o => o.Item)
             .Include(o => o.Shop)
             .OrderByDescending(o => o.OrderedAt)
+            .Take(maxOrders)
             .ToListAsync();
     }
 
@@ -276,6 +280,12 @@ public class OrderService : IOrderService
 
         var shopIds = await _shopAccess.GetAssignedShopIdsAsync(currentUser.Id);
 
+        if (shopIds.Count == 0)
+            return new();
+
+        // Cap list size so history growth cannot pull an unbounded result set.
+        const int maxOrders = 200;
+
         return await _db.Orders
             .AsNoTracking()
             .Where(o => shopIds.Contains(o.ShopId))
@@ -283,6 +293,7 @@ public class OrderService : IOrderService
             .Include(o => o.Shop)
             .Include(o => o.Customer)
             .OrderByDescending(o => o.OrderedAt)
+            .Take(maxOrders)
             .ToListAsync();
     }
 

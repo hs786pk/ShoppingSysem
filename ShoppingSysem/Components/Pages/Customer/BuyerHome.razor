@@ -129,7 +129,15 @@
 
     private async Task ReloadItems()
     {
-        allItems = await Db.Items.AsNoTracking().OrderBy(i => i.Name).ToListAsync();
+        // Soft catalog cap keeps the buyer page responsive as inventory grows.
+        const int maxCatalogItems = 1000;
+
+        allItems = await Db.Items
+            .AsNoTracking()
+            .OrderBy(i => i.Name)
+            .Take(maxCatalogItems)
+            .ToListAsync();
+
         categories = allItems
             .Select(i => i.Category ?? "General")
             .Distinct(StringComparer.OrdinalIgnoreCase)

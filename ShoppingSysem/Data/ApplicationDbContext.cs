@@ -33,6 +33,7 @@ namespace ShoppingSysem.Data
                     .OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(i => i.ShopId);
                 e.HasIndex(i => i.Category);
+                e.HasIndex(i => i.Name);
                 // One item name per shop (application layer also enforces this).
                 e.HasIndex(i => new { i.ShopId, i.Name }).IsUnique();
             });
@@ -56,6 +57,8 @@ namespace ShoppingSysem.Data
                 e.HasIndex(s => s.ShopId);
                 e.HasIndex(s => s.ItemId);
                 e.HasIndex(s => s.SaleDate);
+                // History page: filter by shopkeeper, sort by date.
+                e.HasIndex(s => new { s.ShopkeeperId, s.SaleDate });
             });
 
             builder.Entity<ShopAssignment>(e =>
@@ -88,6 +91,10 @@ namespace ShoppingSysem.Data
                 e.HasIndex(o => o.ItemId);
                 e.HasIndex(o => o.Status);
                 e.HasIndex(o => o.OrderedAt);
+                // Customer "My orders" and shopkeeper order boards.
+                e.HasIndex(o => new { o.CustomerId, o.OrderedAt });
+                e.HasIndex(o => new { o.ShopId, o.OrderedAt });
+                e.HasIndex(o => new { o.ShopId, o.Status });
             });
 
             builder.Entity<CustomerInterest>(e =>
