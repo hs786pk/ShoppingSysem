@@ -135,15 +135,18 @@ namespace ShoppingSysem.Components.Pages
                 return;
             }
 
-            if (!int.TryParse(quantity, out var qty) || qty < 1)
+            if (string.IsNullOrWhiteSpace(quantity) ||
+                quantity.Trim().Length > 10 ||
+                !int.TryParse(quantity.Trim(), out var qty) ||
+                qty < 1)
             {
                 errorMessage = "Enter a valid quantity.";
                 return;
             }
 
-            if (qty > 10000)
+            if (qty > ValidationLimits.MaxQuantityPerTransaction)
             {
-                errorMessage = "Quantity cannot exceed 10,000 units.";
+                errorMessage = $"Quantity cannot exceed {ValidationLimits.MaxQuantityPerTransaction:N0} units.";
                 return;
             }
             await using var tx = await DbContext.Database.BeginTransactionAsync();
@@ -162,7 +165,7 @@ namespace ShoppingSysem.Components.Pages
             }
 
             if (item.Price < 0 ||
-                item.Price > 100_000_000m ||
+                item.Price > ValidationLimits.MaxPrice ||
                 decimal.Round(item.Price, 2) != item.Price)
             {
                 await tx.RollbackAsync();

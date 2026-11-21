@@ -153,7 +153,7 @@ namespace ShoppingSysem.Components.Pages.Admin
             var email = newEmail?.Trim();
 
             if (string.IsNullOrWhiteSpace(email) ||
-                email.Length > 256 ||
+                email.Length > ValidationLimits.MaxEmailLength ||
                 !new EmailAddressAttribute().IsValid(email))
             {
                 errorMessage = "Enter a valid email address.";
@@ -163,6 +163,13 @@ namespace ShoppingSysem.Components.Pages.Admin
             if (string.IsNullOrWhiteSpace(newPassword))
             {
                 errorMessage = "Password is required.";
+                return;
+            }
+
+            if (newPassword.Length < ValidationLimits.MinPasswordLength)
+            {
+                errorMessage =
+                    $"Password must be at least {ValidationLimits.MinPasswordLength} characters.";
                 return;
             }
 

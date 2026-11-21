@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using ShoppingSysem.Data;
 
 namespace ShoppingSysem.Models
 {
@@ -8,10 +9,10 @@ namespace ShoppingSysem.Models
         public int Id { get; set; }
 
         [Required]
-        [MaxLength(100)]
+        [MaxLength(ValidationLimits.ShopNameMaxLength)]
         public string Name { get; set; } = string.Empty;
 
-        [MaxLength(200)]
+        [MaxLength(ValidationLimits.ShopLocationMaxLength)]
         public string Location { get; set; } = string.Empty;
 
         public List<Item> Items { get; set; } = new();

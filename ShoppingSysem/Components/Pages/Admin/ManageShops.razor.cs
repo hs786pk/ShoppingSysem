@@ -83,15 +83,15 @@ namespace ShoppingSysem.Components.Pages.Admin
                 return;
             }
 
-            if (name.Length > 100)
+            if (name.Length > ValidationLimits.ShopNameMaxLength)
             {
-                errorMessage = "Shop name cannot exceed 100 characters.";
+                errorMessage = $"Shop name cannot exceed {ValidationLimits.ShopNameMaxLength} characters.";
                 return;
             }
 
-            if (location.Length > 200)
+            if (location.Length > ValidationLimits.ShopLocationMaxLength)
             {
-                errorMessage = "Location cannot exceed 200 characters.";
+                errorMessage = $"Location cannot exceed {ValidationLimits.ShopLocationMaxLength} characters.";
                 return;
             }
             if (await DbContext.Shops.AnyAsync(s =>

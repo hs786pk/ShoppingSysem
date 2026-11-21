@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel.DataAnnotations;
+using ShoppingSysem.Data;
 
 namespace ShoppingSysem.Models
 {
@@ -8,13 +9,13 @@ namespace ShoppingSysem.Models
         public int Id { get; set; }
 
         [Required]
-        [MaxLength(100)]
+        [MaxLength(ValidationLimits.ItemNameMaxLength)]
         public string Name { get; set; } = string.Empty;
 
-        [Range(0, 100_000_000)]
+        [Range(0, (double)ValidationLimits.MaxPrice)]
         public decimal Price { get; set; }
 
-        [Range(0, 1_000_000)]
+        [Range(0, ValidationLimits.MaxStock)]
         public int Stock { get; set; }
 
         // Foreign key: which shop this item belongs to
@@ -22,7 +23,7 @@ namespace ShoppingSysem.Models
         public int ShopId { get; set; }
         public Shop Shop { get; set; } = null!;
 
-        [MaxLength(100)]
+        [MaxLength(ValidationLimits.CategoryMaxLength)]
         public string? Category { get; set; }
     }
 }

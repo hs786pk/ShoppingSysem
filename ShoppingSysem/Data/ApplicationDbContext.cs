@@ -25,13 +25,22 @@ namespace ShoppingSysem.Data
 
             builder.Entity<Item>(e =>
             {
+                e.Property(i => i.Name).HasMaxLength(ValidationLimits.ItemNameMaxLength);
                 e.Property(i => i.Price).HasPrecision(18, 2);
-                e.Property(i => i.Category).HasMaxLength(100);
+                e.Property(i => i.Category).HasMaxLength(ValidationLimits.CategoryMaxLength);
                 e.HasOne(i => i.Shop)
                     .WithMany(s => s.Items)
                     .OnDelete(DeleteBehavior.Restrict);
                 e.HasIndex(i => i.ShopId);
                 e.HasIndex(i => i.Category);
+                // One item name per shop (application layer also enforces this).
+                e.HasIndex(i => new { i.ShopId, i.Name }).IsUnique();
+            });
+
+            builder.Entity<Shop>(e =>
+            {
+                e.Property(s => s.Name).HasMaxLength(ValidationLimits.ShopNameMaxLength);
+                e.Property(s => s.Location).HasMaxLength(ValidationLimits.ShopLocationMaxLength);
             });
 
             builder.Entity<Sale>(e =>

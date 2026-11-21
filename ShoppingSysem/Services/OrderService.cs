@@ -120,7 +120,7 @@ public class OrderService : IOrderService
         if (quantity < 1)
             return new(false, "Quantity must be at least 1.");
 
-        if (quantity > 10000)
+        if (quantity > ValidationLimits.MaxQuantityPerTransaction)
             return new(false, "Requested quantity exceeds the allowed limit.");
 
         await using var tx = await _db.Database.BeginTransactionAsync();
@@ -133,7 +133,7 @@ public class OrderService : IOrderService
             return new(false, "That product no longer exists.");
 
         if (item.Price < 0 ||
-            item.Price > 100_000_000m ||
+            item.Price > ValidationLimits.MaxPrice ||
             decimal.Round(item.Price, 2) != item.Price)
             return new(false, "Invalid product price.");
 

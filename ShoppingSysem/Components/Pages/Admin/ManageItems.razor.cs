@@ -9,9 +9,7 @@ namespace ShoppingSysem.Components.Pages.Admin
 {
     public partial class ManageItems
     {
-        private const decimal MaxPrice = 100_000_000m;
-        private const int MaxStock = 1_000_000;
-        private const int MaxCategoryLength = 100;
+        // Limits come from ValidationLimits so forms stay aligned with models.
 
         [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
         [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
@@ -50,14 +48,14 @@ namespace ShoppingSysem.Components.Pages.Admin
         // Single place for field rules shared by add and update.
         private static string? ValidateFields(decimal price, int stock, string? category)
         {
-            if (price < 0 || price > MaxPrice || decimal.Round(price, 2) != price)
-                return $"Price must be between 0 and {MaxPrice:N0} with at most 2 decimal places.";
+            if (price < 0 || price > ValidationLimits.MaxPrice || decimal.Round(price, 2) != price)
+                return $"Price must be between 0 and {ValidationLimits.MaxPrice:N0} with at most 2 decimal places.";
 
-            if (stock < 0 || stock > MaxStock)
-                return $"Stock must be between 0 and {MaxStock:N0}.";
+            if (stock < 0 || stock > ValidationLimits.MaxStock)
+                return $"Stock must be between 0 and {ValidationLimits.MaxStock:N0}.";
 
-            if (category is { Length: > MaxCategoryLength })
-                return $"Category cannot exceed {MaxCategoryLength} characters.";
+            if (category is { Length: > ValidationLimits.CategoryMaxLength })
+                return $"Category cannot exceed {ValidationLimits.CategoryMaxLength} characters.";
 
             return null;
         }
@@ -161,19 +159,21 @@ namespace ShoppingSysem.Components.Pages.Admin
 
             var name = newItemName.Trim();
 
-            if (name.Length > 100)
+            if (name.Length > ValidationLimits.ItemNameMaxLength)
             {
-                errorMessage = "Item name cannot exceed 100 characters.";
+                errorMessage = $"Item name cannot exceed {ValidationLimits.ItemNameMaxLength} characters.";
                 return;
             }
 
-            if (!decimal.TryParse(newItemPrice, out var price))
+            if (string.IsNullOrWhiteSpace(newItemPrice) ||
+                !decimal.TryParse(newItemPrice.Trim(), out var price))
             {
                 errorMessage = "Enter a valid price.";
                 return;
             }
 
-            if (!int.TryParse(newItemStock, out var stock))
+            if (string.IsNullOrWhiteSpace(newItemStock) ||
+                !int.TryParse(newItemStock.Trim(), out var stock))
             {
                 errorMessage = "Enter a valid stock quantity.";
                 return;

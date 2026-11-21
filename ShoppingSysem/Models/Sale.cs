@@ -12,13 +12,13 @@ namespace ShoppingSysem.Models
         public int ItemId { get; set; }
         public Item Item { get; set; } = null!;
 
-        [Range(1, 10_000)]
+        [Range(1, ValidationLimits.MaxQuantityPerTransaction)]
         public int QuantitySold { get; set; }
 
         [Range(0, 1_000_000_000_000)]
         public decimal TotalPrice { get; set; }
 
-        public DateTime SaleDate { get; set; } = DateTime.Now;
+        public DateTime SaleDate { get; set; } = DateTime.UtcNow;
 
         // Who made this sale (a Shopkeeper)
         [Required]
