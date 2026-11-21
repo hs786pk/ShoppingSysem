@@ -162,6 +162,9 @@ builder.Services.AddScoped<
     ShoppingSysem.Services.IOrderService,
     ShoppingSysem.Services.OrderService>();
 
+builder.Services.AddScoped<
+    ShoppingSysem.Services.IShopAccessService,
+    ShoppingSysem.Services.ShopAccessService>();
 
 // Trust X-Forwarded-For / X-Forwarded-Proto only from configured proxies.
 // With no entries, the headers are ignored so a client cannot spoof its IP.

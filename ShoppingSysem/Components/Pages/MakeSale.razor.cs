@@ -14,6 +14,10 @@ namespace ShoppingSysem.Components.Pages
 
         [Inject]
         private ILogger<MakeSale> Logger { get; set; } = default!;
+
+        [Inject]
+        private ShoppingSysem.Services.IShopAccessService ShopAccess { get; set; } = default!;
+
         List<Shop> myShops = new();
         List<Item> items = new();
 
@@ -38,11 +42,8 @@ namespace ShoppingSysem.Components.Pages
             return user;
         }
 
-        private async Task<bool> IsAssignedToShopAsync(string userId, int shopId)
-        {
-            return await DbContext.ShopAssignments
-                .AnyAsync(a => a.ShopkeeperId == userId && a.ShopId == shopId);
-        }
+        private Task<bool> IsAssignedToShopAsync(string userId, int shopId)
+            => ShopAccess.IsShopkeeperAssignedAsync(userId, shopId);
 
         protected override async Task OnInitializedAsync()
         {
@@ -54,13 +55,15 @@ namespace ShoppingSysem.Components.Pages
                 return;
             }
 
-            myShops = await DbContext.ShopAssignments
-                .AsNoTracking()
-                .Where(a => a.ShopkeeperId == user.Id)
-                .Include(a => a.Shop)
-                .Select(a => a.Shop)
-                .OrderBy(s => s.Name)
-                .ToListAsync();
+            var assignedShopIds = await ShopAccess.GetAssignedShopIdsAsync(user.Id);
+
+            myShops = assignedShopIds.Count == 0
+                ? new List<Shop>()
+                : await DbContext.Shops
+                    .AsNoTracking()
+                    .Where(s => assignedShopIds.Contains(s.Id))
+                    .OrderBy(s => s.Name)
+                    .ToListAsync();
         }
 
         async Task LoadItems()

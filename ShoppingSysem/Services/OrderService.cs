@@ -25,17 +25,20 @@ public class OrderService : IOrderService
     private readonly ApplicationDbContext _db;
     private readonly AuthenticationStateProvider _authenticationStateProvider;
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly IShopAccessService _shopAccess;
     private readonly ILogger<OrderService> _logger;
 
     public OrderService(
         ApplicationDbContext db,
         AuthenticationStateProvider authenticationStateProvider,
         UserManager<ApplicationUser> userManager,
+        IShopAccessService shopAccess,
         ILogger<OrderService> logger)
     {
         _db = db;
         _authenticationStateProvider = authenticationStateProvider;
         _userManager = userManager;
+        _shopAccess = shopAccess;
         _logger = logger;
     }
 
@@ -271,11 +274,7 @@ public class OrderService : IOrderService
             return new();
         }
 
-        var shopIds = await _db.ShopAssignments
-            .AsNoTracking()
-            .Where(a => a.ShopkeeperId == currentUser.Id)
-            .Select(a => a.ShopId)
-            .ToListAsync();
+        var shopIds = await _shopAccess.GetAssignedShopIdsAsync(currentUser.Id);
 
         return await _db.Orders
             .AsNoTracking()
@@ -419,7 +418,8 @@ public class OrderService : IOrderService
 
         if (order == null)
             return new(false, "Order not found.");
-        if (order.Quantity < 1 || order.Quantity > 10000)
+        if (order.Quantity < 1 ||
+            order.Quantity > ValidationLimits.MaxQuantityPerTransaction)
         {
             return new(
                 false,
@@ -437,11 +437,8 @@ public class OrderService : IOrderService
 
         if (shopkeeperId != null)
         {
-            var allowed = await _db.ShopAssignments
-                .AsNoTracking()
-                .AnyAsync(a =>
-                    a.ShopkeeperId == currentUser.Id &&
-                    a.ShopId == order.ShopId);
+            var allowed = await _shopAccess.IsShopkeeperAssignedAsync(
+                currentUser.Id, order.ShopId);
 
             if (!allowed)
             {

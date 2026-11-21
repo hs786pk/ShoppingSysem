@@ -46,7 +46,8 @@ public sealed class Actor : IDisposable
         var db = sp.GetRequiredService<ApplicationDbContext>();
         var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
 
-        Orders = new OrderService(db, auth, users, NullLogger<OrderService>.Instance);
+        var shopAccess = new ShopAccessService(db);
+        Orders = new OrderService(db, auth, users, shopAccess, NullLogger<OrderService>.Instance);
         Recs = new RecommendationService(db, auth, users, NullLogger<RecommendationService>.Instance);
     }
 
