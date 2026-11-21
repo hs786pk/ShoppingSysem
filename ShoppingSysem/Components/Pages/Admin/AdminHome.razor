@@ -1,6 +1,5 @@
 @page "/admin"
-@attribute [Authorize(Roles = "Admin")]
-@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = AppRoles.Admin)]
 
 <PageTitle>Admin Dashboard</PageTitle>
 

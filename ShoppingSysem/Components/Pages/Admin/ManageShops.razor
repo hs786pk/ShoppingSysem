@@ -1,8 +1,6 @@
 ﻿@page "/admin/shops"
-@attribute [Authorize(Roles = "Admin")]
-@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = AppRoles.Admin)]
 @using Microsoft.EntityFrameworkCore
-@using ShoppingSysem.Data
 @using ShoppingSysem.Models
 @inject ApplicationDbContext DbContext
 @rendermode InteractiveServer

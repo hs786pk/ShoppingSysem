@@ -55,7 +55,7 @@ namespace ShoppingSysem.Components.Pages.Admin
 
             adminId = currentUser.Id;
 
-            if (await UserManager.IsInRoleAsync(currentUser, "Admin"))
+            if (await UserManager.IsInRoleAsync(currentUser, AppRoles.Admin))
                 return true;
 
             Logger.LogWarning(
@@ -85,7 +85,7 @@ namespace ShoppingSysem.Components.Pages.Admin
                     .ToListAsync();
 
                 var users =
-                    await UserManager.GetUsersInRoleAsync("Shopkeeper");
+                    await UserManager.GetUsersInRoleAsync(AppRoles.Shopkeeper);
 
                 shopkeepers = users.ToList();
             }
@@ -233,7 +233,7 @@ namespace ShoppingSysem.Components.Pages.Admin
                     var roleResult =
                         await UserManager.AddToRoleAsync(
                             user,
-                            "Shopkeeper");
+                            AppRoles.Shopkeeper);
 
                     if (!roleResult.Succeeded)
                     {

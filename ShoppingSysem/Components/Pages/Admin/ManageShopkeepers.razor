@@ -1,9 +1,7 @@
 ﻿@page "/admin/shopkeepers"
-@attribute [Authorize(Roles = "Admin")]
-@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = AppRoles.Admin)]
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.EntityFrameworkCore
-@using ShoppingSysem.Data
 @using ShoppingSysem.Models
 @inject ApplicationDbContext DbContext
 @inject UserManager<ApplicationUser> UserManager

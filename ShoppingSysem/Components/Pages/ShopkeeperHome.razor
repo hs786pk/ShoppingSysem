@@ -1,6 +1,5 @@
 @page "/shopkeeper"
-@attribute [Authorize(Roles = "Shopkeeper")]
-@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize(Roles = AppRoles.Shopkeeper)]
 
 <PageTitle>Shopkeeper Dashboard</PageTitle>
 

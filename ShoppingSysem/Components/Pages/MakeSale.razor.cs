@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.EntityFrameworkCore;
+using ShoppingSysem.Data;
 using ShoppingSysem.Models;
 using System.Data.Common;
 
@@ -31,7 +32,7 @@ namespace ShoppingSysem.Components.Pages
             var authState = await AuthState;
             var user = await UserManager.GetUserAsync(authState.User);
 
-            if (user is null || !await UserManager.IsInRoleAsync(user, "Shopkeeper"))
+            if (user is null || !await UserManager.IsInRoleAsync(user, AppRoles.Shopkeeper))
                 return null;
 
             return user;

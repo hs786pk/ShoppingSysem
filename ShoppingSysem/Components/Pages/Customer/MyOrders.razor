@@ -1,6 +1,6 @@
 @page "/buyer/orders"
 @rendermode InteractiveServer
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Customer,Admin")]
+@attribute [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
 
 @using System.Security.Claims
 @using ShoppingSysem.Models

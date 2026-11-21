@@ -28,7 +28,7 @@ namespace ShoppingSysem.Components.Pages.Admin
 
             adminId = user?.Id;
 
-            if (user is not null && await UserManager.IsInRoleAsync(user, "Admin"))
+            if (user is not null && await UserManager.IsInRoleAsync(user, AppRoles.Admin))
                 return true;
 
             Logger.LogWarning(

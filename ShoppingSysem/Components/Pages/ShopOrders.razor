@@ -1,6 +1,6 @@
 @page "/shopkeeper/orders"
 @rendermode InteractiveServer
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Shopkeeper")]
+@attribute [Authorize(Roles = AppRoles.Shopkeeper)]
 
 @using System.Security.Claims
 @using ShoppingSysem.Models

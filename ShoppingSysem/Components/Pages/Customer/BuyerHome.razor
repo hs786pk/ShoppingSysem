@@ -1,6 +1,6 @@
 @page "/buyer"
 @rendermode InteractiveServer
-@attribute [Microsoft.AspNetCore.Authorization.Authorize(Roles = "Customer,Admin")]
+@attribute [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
 
 @using System.Security.Claims
 @using Microsoft.EntityFrameworkCore
@@ -45,9 +45,7 @@
             <span>@recommended.Count picks</span>
         </div>
         <div class="catalog shelf-picked">
-            @{
-                var n = 0;
-            }
+            @{ var n = 0; }
             @foreach (var r in recommended)
             {
                 n++;
@@ -69,9 +67,7 @@
     else
     {
         <div class="catalog">
-            @{
-                var n = 0;
-            }
+            @{ var n = 0; }
             @foreach (var item in filtered)
             {
                 n++;

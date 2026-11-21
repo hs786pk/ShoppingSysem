@@ -21,7 +21,7 @@ namespace ShoppingSysem.Components.Pages
             var authState = await AuthStateProvider.GetAuthenticationStateAsync();
             var user = await UserManager.GetUserAsync(authState.User);
 
-            if (user is null || !await UserManager.IsInRoleAsync(user, "Shopkeeper"))
+            if (user is null || !await UserManager.IsInRoleAsync(user, AppRoles.Shopkeeper))
             {
                 Logger.LogWarning(
                     "Sales history denied for user {UserId}.",

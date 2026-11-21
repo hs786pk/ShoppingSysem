@@ -108,7 +108,7 @@
 // Shopkeeper and Admin accounts are managed separately.
 var roleResult = await UserManager.AddToRoleAsync(
     user,
-    "Customer");
+    AppRoles.Customer);
 
 if (!roleResult.Succeeded)
 {
