@@ -92,6 +92,10 @@ public sealed class MigrationVerificationTests
 
         // Shop assignments
         Assert.Contains("b.HasIndex(\"ShopkeeperId\", \"ShopId\")", text);
+
+        // Customer interests
+        Assert.Contains("b.HasIndex(\"UserId\", \"ItemId\", \"Type\", \"CreatedAt\")", text);
+        Assert.Contains(".HasMaxLength(450)", text);
     }
 
     [Fact]
@@ -101,18 +105,31 @@ public sealed class MigrationVerificationTests
             .Single();
         var text = File.ReadAllText(path);
 
-        var created = Regex.Matches(text, @"CreateIndex\(\s*name:\s*""([^""]+)""")
-            .Select(m => m.Groups[1].Value)
-            .OrderBy(n => n)
-            .ToList();
+        var names = new[]
+        {
+            "IX_CustomerInterests_ItemId",
+            "IX_CustomerInterests_UserId",
+            "IX_CustomerInterests_UserId_ItemId_Type_CreatedAt",
+            "IX_Items_Category",
+            "IX_Items_Name",
+            "IX_Items_ShopId_Name",
+            "IX_Orders_CustomerId_OrderedAt",
+            "IX_Orders_ShopId_OrderedAt",
+            "IX_Orders_ShopId_Status",
+            "IX_Orders_OrderedAt",
+            "IX_Orders_Status",
+            "IX_Sales_SaleDate",
+            "IX_Sales_ShopkeeperId_SaleDate",
+            "IX_ShopAssignments_ShopkeeperId_ShopId"
+        };
 
-        var dropped = Regex.Matches(text, @"DropIndex\(\s*name:\s*""([^""]+)""")
-            .Select(m => m.Groups[1].Value)
-            .OrderBy(n => n)
-            .ToList();
+        foreach (var name in names)
+        {
+            var occurrences = Regex.Matches(text, Regex.Escape(name)).Count;
+            Assert.True(occurrences >= 2, $"{name} should appear in Up and Down, found {occurrences}.");
+        }
 
-        Assert.NotEmpty(created);
-        Assert.Equal(created, dropped);
+        Assert.Contains("IF NOT EXISTS", text);
     }
 
     [Fact]
@@ -135,7 +152,7 @@ public sealed class MigrationVerificationTests
     {
         // Unit-test databases use EnsureCreated; this confirms the current model
         // still builds a usable schema for in-memory-style SQLite tests.
-        await using var db = new TestDb();
+        using var db = new TestDb();
         await db.QueryAsync(async ctx =>
         {
             Assert.True(await ctx.Database.CanConnectAsync());

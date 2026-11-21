@@ -377,7 +377,7 @@ public sealed class AccountSourceGuardTests
     {
         var source = Read(page);
 
-        Assert.Contains("AddToRoleAsync(user,\"Customer\")", source);
+        Assert.Contains("AddToRoleAsync(user,AppRoles.Customer)", source);
         Assert.DoesNotContain("\"Admin\"", source);
         Assert.DoesNotContain("\"Shopkeeper\"", source);
         Assert.DoesNotContain("AddToRolesAsync", source);
