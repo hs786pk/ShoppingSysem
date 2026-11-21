@@ -322,6 +322,101 @@ public sealed class OrderSecurityTests : IDisposable
         }
     }
 
+    // ---- Additional authorization edge cases ------------------------------
+
+    [Fact]
+    public async Task Admin_CanPlaceOrder()
+    {
+        var admin = await _db.AddUserAsync("admin-edge@test.local", "Admin");
+        var (_, itemId) = await _db.AddItemAsync("AdminShop", stock: 3);
+
+        using var actor = _db.As(admin);
+        var result = await actor.Orders.PlaceAsync(admin, itemId, 1);
+
+        Assert.True(result.Ok, result.Message);
+        Assert.Equal(1, await _db.OrderCountAsync());
+        Assert.Equal(2, await _db.StockAsync(itemId));
+    }
+
+    [Fact]
+    public async Task Shopkeeper_AfterUnassignment_CannotFulfillOrListShopOrders()
+    {
+        var w = await SeedAsync();
+        var orderId = await PlaceAsync(w.CustA, w.Item1);
+
+        await _db.UnassignAsync(w.Keeper1, w.Shop1);
+
+        using var keeper = _db.As(w.Keeper1);
+        Assert.False((await keeper.Orders.FulfillAsync(w.Keeper1, orderId)).Ok);
+        Assert.False((await keeper.Orders.CancelByShopkeeperAsync(w.Keeper1, orderId)).Ok);
+        Assert.Empty(await keeper.Orders.GetForShopkeeperAsync(w.Keeper1));
+        Assert.Equal(OrderStatus.Placed, (await _db.OrderAsync(orderId)).Status);
+    }
+
+    [Fact]
+    public async Task ListShopkeeperOrders_WithOtherKeepersId_ReturnsNothing()
+    {
+        var w = await SeedAsync();
+        await PlaceAsync(w.CustA, w.Item1);
+
+        using var keeper1 = _db.As(w.Keeper1);
+        Assert.Empty(await keeper1.Orders.GetForShopkeeperAsync(w.Keeper2));
+    }
+
+    [Fact]
+    public async Task Fulfill_AlreadyFulfilled_IsDenied()
+    {
+        var w = await SeedAsync();
+        var orderId = await PlaceAsync(w.CustA, w.Item1);
+
+        using var keeper = _db.As(w.Keeper1);
+        Assert.True((await keeper.Orders.FulfillAsync(w.Keeper1, orderId)).Ok);
+        Assert.False((await keeper.Orders.FulfillAsync(w.Keeper1, orderId)).Ok);
+        Assert.Equal(OrderStatus.Fulfilled, (await _db.OrderAsync(orderId)).Status);
+    }
+
+    [Fact]
+    public async Task Customer_CannotCancelAfterFulfillment()
+    {
+        var w = await SeedAsync();
+        var orderId = await PlaceAsync(w.CustA, w.Item1, 2);
+
+        using (var keeper = _db.As(w.Keeper1))
+            Assert.True((await keeper.Orders.FulfillAsync(w.Keeper1, orderId)).Ok);
+
+        using var customer = _db.As(w.CustA);
+        Assert.False((await customer.Orders.CancelByCustomerAsync(w.CustA, orderId)).Ok);
+        Assert.Equal(OrderStatus.Fulfilled, (await _db.OrderAsync(orderId)).Status);
+        Assert.Equal(3, await _db.StockAsync(w.Item1));
+    }
+
+    [Fact]
+    public async Task Shopkeeper_CannotRecordRecommendations()
+    {
+        var w = await SeedAsync();
+        using var keeper = _db.As(w.Keeper1);
+
+        await keeper.Recs.RecordAsync(w.Keeper1, w.Item1, InteractionType.View);
+        var recs = await keeper.Recs.GetRecommendationsAsync(w.Keeper1, 5);
+
+        Assert.Equal(0, await _db.InterestCountAsync(w.Keeper1));
+        Assert.Empty(recs);
+    }
+
+    [Fact]
+    public async Task Anonymous_CannotListOrMutateOrders()
+    {
+        var w = await SeedAsync();
+        var orderId = await PlaceAsync(w.CustA, w.Item1);
+
+        using var anon = _db.As(null);
+        Assert.Empty(await anon.Orders.GetForCustomerAsync(w.CustA));
+        Assert.Empty(await anon.Orders.GetForShopkeeperAsync(w.Keeper1));
+        Assert.False((await anon.Orders.CancelByCustomerAsync(w.CustA, orderId)).Ok);
+        Assert.False((await anon.Orders.FulfillAsync(w.Keeper1, orderId)).Ok);
+        Assert.Equal(OrderStatus.Placed, (await _db.OrderAsync(orderId)).Status);
+    }
+
     // ---- Recommendation interactions (batch 3) ---------------------------
 
     [Fact]

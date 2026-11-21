@@ -129,6 +129,26 @@ public sealed class TestDb : IDisposable
         await db.SaveChangesAsync();
     }
 
+    /// <summary>
+    /// Removes all shop assignments for the given shopkeeper and shop.
+    /// Used by authorization edge-case tests after a shopkeeper is unassigned.
+    /// </summary>
+    public async Task UnassignAsync(string shopkeeperId, int shopId)
+    {
+        using var scope = _root.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+
+        var rows = await db.ShopAssignments
+            .Where(a => a.ShopkeeperId == shopkeeperId && a.ShopId == shopId)
+            .ToListAsync();
+
+        if (rows.Count == 0)
+            return;
+
+        db.ShopAssignments.RemoveRange(rows);
+        await db.SaveChangesAsync();
+    }
+
     public Task<int> StockAsync(int itemId) =>
         QueryAsync(db => db.Items.Where(i => i.Id == itemId).Select(i => i.Stock).SingleAsync());
 

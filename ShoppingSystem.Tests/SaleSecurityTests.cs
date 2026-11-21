@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using ShoppingSysem.Components.Pages;
 using ShoppingSysem.Data;
 using ShoppingSysem.Models;
+using ShoppingSysem.Services;
 using Xunit;
 
 namespace ShoppingSystem.Tests;
@@ -30,6 +31,7 @@ internal sealed class SaleHarness : IDisposable
         SetProperty("DbContext", sp.GetRequiredService<ApplicationDbContext>());
         SetProperty("UserManager", sp.GetRequiredService<UserManager<ApplicationUser>>());
         SetProperty("Logger", NullLogger<MakeSale>.Instance);
+        SetProperty("ShopAccess", new ShopAccessService(sp.GetRequiredService<ApplicationDbContext>()));
         SetProperty("AuthState",
             sp.GetRequiredService<AuthenticationStateProvider>().GetAuthenticationStateAsync());
     }
