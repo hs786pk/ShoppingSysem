@@ -241,6 +241,8 @@ internal sealed class SqlServerSaleHarness : IDisposable
         SetProperty("DbContext", services.GetRequiredService<ApplicationDbContext>());
         SetProperty("UserManager", services.GetRequiredService<UserManager<ApplicationUser>>());
         SetProperty("Logger", NullLogger<MakeSale>.Instance);
+        SetProperty("ShopAccess", new ShoppingSysem.Services.ShopAccessService(
+            services.GetRequiredService<ApplicationDbContext>()));
         SetProperty("AuthState", services.GetRequiredService<AuthenticationStateProvider>()
             .GetAuthenticationStateAsync());
     }
