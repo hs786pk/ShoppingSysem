@@ -353,7 +353,12 @@ public sealed class AccountSourceGuardTests
 
         Assert.NotNull(dir);
         var path = Path.Combine(dir!.FullName, "ShoppingSysem", relativePath);
-        return Regex.Replace(File.ReadAllText(path), @"\s+", "");
+        var text = File.ReadAllText(path);
+        var codeBehind = Path.ChangeExtension(path, ".razor.cs");
+        if (File.Exists(codeBehind))
+            text += File.ReadAllText(codeBehind);
+
+        return Regex.Replace(text, @"\s+", "");
     }
 
     private const string ExternalLogin = "Components/Account/Pages/ExternalLogin.razor";

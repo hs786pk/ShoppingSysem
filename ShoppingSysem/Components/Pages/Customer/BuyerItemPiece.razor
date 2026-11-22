@@ -1,0 +1,18 @@
+<article class="piece">
+    <span class="idx">@Index.ToString("00")</span>
+    @if (Reason is not null)
+    {
+        <p class="reason">@Reason</p>
+    }
+    <h3>@Item.Name</h3>
+    <p class="meta">@(Item.Category ?? "General")</p>
+    <p class="figure">Rs @Item.Price.ToString("N0")</p>
+    <p class="stock @(Item.Stock > 0 ? "in" : "out")">
+        @(Item.Stock > 0 ? $"{Item.Stock} in stock" : "Out of stock")
+    </p>
+    <div class="piece-actions">
+        <button class="btn btn-outline-secondary" @onclick="View">View</button>
+        <button class="btn btn-outline-danger" @onclick="Save">Save</button>
+        <button class="btn-buy" disabled="@(Busy || Item.Stock <= 0)" @onclick="Buy">Buy</button>
+    </div>
+</article>

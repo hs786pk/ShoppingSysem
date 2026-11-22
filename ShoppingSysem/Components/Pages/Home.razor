@@ -1,38 +1,5 @@
-﻿@page "/"
-@using Microsoft.AspNetCore.Authorization
-@using Microsoft.AspNetCore.Components.Authorization
+@page "/"
 @inject NavigationManager NavManager
 @rendermode InteractiveServer
 
 <PageTitle>Home</PageTitle>
-
-<AuthorizeView>
-    <Authorized>
-        @{
-            RedirectBasedOnRole(context);
-        }
-    </Authorized>
-    <NotAuthorized>
-        @{
-            NavManager.NavigateTo("Account/Login", forceLoad: false);
-        }
-    </NotAuthorized>
-</AuthorizeView>
-
-@code {
-    void RedirectBasedOnRole(AuthenticationState context)
-    {
-        if (context.User.IsInRole(AppRoles.Admin))
-        {
-            NavManager.NavigateTo("/admin");
-        }
-        else if (context.User.IsInRole(AppRoles.Shopkeeper))
-        {
-            NavManager.NavigateTo("/shopkeeper");
-        }
-        else if (context.User.IsInRole(AppRoles.Customer))
-        {
-            NavManager.NavigateTo("/buyer");
-        }
-    }
-}

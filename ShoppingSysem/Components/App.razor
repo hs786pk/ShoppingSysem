@@ -23,13 +23,6 @@
 
 </html>
 
-@code {
-    [CascadingParameter]
-    private HttpContext HttpContext { get; set; } = default!;
-
-    private IComponentRenderMode? PageRenderMode =>
-        HttpContext.AcceptsInteractiveRouting() ? InteractiveServer : null;
-}
 <script>
     function isMobile() {
     return window.innerWidth <= 768;

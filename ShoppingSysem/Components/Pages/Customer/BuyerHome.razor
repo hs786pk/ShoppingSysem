@@ -2,17 +2,6 @@
 @rendermode InteractiveServer
 @attribute [Authorize(Roles = $"{AppRoles.Customer},{AppRoles.Admin}")]
 
-@using System.Security.Claims
-@using Microsoft.EntityFrameworkCore
-@using ShoppingSysem.Data
-@using ShoppingSysem.Models
-@using ShoppingSysem.Services
-
-@inject AuthenticationStateProvider AuthProvider
-@inject IRecommendationService Recommender
-@inject IOrderService Orders
-@inject ApplicationDbContext Db
-
 <PageTitle>Shop</PageTitle>
 
 <header class="mast">
@@ -45,11 +34,9 @@
             <span>@recommended.Count picks</span>
         </div>
         <div class="catalog shelf-picked">
-            @{ var n = 0; }
-            @foreach (var r in recommended)
+            @foreach (var piece in RecommendedPieces)
             {
-                n++;
-                @ItemPiece(r.Item, r.Reason, n)
+                <BuyerItemPiece Item="piece.Item" Reason="piece.Reason" Index="piece.Index" Busy="busy" OnView="RecordView" OnSave="RecordSave" OnBuy="PlaceOrder" />
             }
         </div>
     </section>
@@ -67,135 +54,10 @@
     else
     {
         <div class="catalog">
-            @{ var n = 0; }
-            @foreach (var item in filtered)
+            @foreach (var piece in FloorPieces)
             {
-                n++;
-                @ItemPiece(item, null, n)
+                <BuyerItemPiece Item="piece.Item" Reason="piece.Reason" Index="piece.Index" Busy="busy" OnView="RecordView" OnSave="RecordSave" OnBuy="PlaceOrder" />
             }
         </div>
     }
 </section>
-
-@code {
-    private string userId = string.Empty;
-    private string search = string.Empty;
-    private string selectedCategory = string.Empty;
-    private string? message;
-    private bool messageIsError;
-    private bool busy;
-
-    private List<Item> allItems = new();
-    private List<string> categories = new();
-    private List<ScoredItem> recommended = new();
-
-    private IEnumerable<Item> FilteredQuery =>
-        allItems.Where(i =>
-            (string.IsNullOrWhiteSpace(search) ||
-                i.Name.Contains(search, StringComparison.OrdinalIgnoreCase)) &&
-            (string.IsNullOrEmpty(selectedCategory) ||
-                string.Equals(i.Category ?? "General", selectedCategory, StringComparison.OrdinalIgnoreCase)));
-
-    private List<Item> filtered => FilteredQuery.ToList();
-
-    private RenderFragment ItemPiece(Item item, string? reason, int index) =>
-    @<article class="piece">
-        <span class="idx">@index.ToString("00")</span>
-        @if (reason is not null)
-        {
-            <p class="reason">@reason</p>
-        }
-        <h3>@item.Name</h3>
-        <p class="meta">@(item.Category ?? "General")</p>
-        <p class="figure">Rs @item.Price.ToString("N0")</p>
-        <p class="stock @(item.Stock > 0 ? "in" : "out")">
-            @(item.Stock > 0 ? $"{item.Stock} in stock" : "Out of stock")
-        </p>
-        <div class="piece-actions">
-            <button class="btn btn-outline-secondary" @onclick="() => Act(item, InteractionType.View)">View</button>
-            <button class="btn btn-outline-danger" @onclick="() => Act(item, InteractionType.Wishlist)">Save</button>
-            <button class="btn-buy" disabled="@(busy || item.Stock <= 0)" @onclick="() => Buy(item)">Buy</button>
-        </div>
-    </article>;
-
-    protected override async Task OnInitializedAsync()
-    {
-        var state = await AuthProvider.GetAuthenticationStateAsync();
-        userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? string.Empty;
-
-        await ReloadItems();
-        await LoadRecommendations();
-    }
-
-    private async Task ReloadItems()
-    {
-        // Soft catalog cap keeps the buyer page responsive as inventory grows.
-        const int maxCatalogItems = 1000;
-
-        allItems = await Db.Items
-            .AsNoTracking()
-            .OrderBy(i => i.Name)
-            .Take(maxCatalogItems)
-            .ToListAsync();
-
-        categories = allItems
-            .Select(i => i.Category ?? "General")
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(c => c)
-            .ToList();
-    }
-
-    private async Task LoadRecommendations()
-    {
-        recommended = await Recommender.GetRecommendationsAsync(userId, 8);
-    }
-
-    private async Task Act(Item item, InteractionType type)
-    {
-        if (string.IsNullOrEmpty(userId) || item.Id <= 0) return;
-
-        try
-        {
-            await Recommender.RecordAsync(userId, item.Id, type);
-
-            messageIsError = false;
-            message = type switch
-            {
-                InteractionType.Wishlist => $"{item.Name} saved.",
-                _ => $"Viewing {item.Name}."
-            };
-
-            await LoadRecommendations();
-        }
-        catch (Exception)
-        {
-            messageIsError = true;
-            message = "Could not record that action. Please try again.";
-        }
-    }
-
-    private async Task Buy(Item item)
-    {
-        if (busy || string.IsNullOrEmpty(userId) || item.Id <= 0 || item.Stock <= 0) return;
-
-        busy = true;
-        try
-        {
-            var result = await Orders.PlaceAsync(userId, item.Id, 1);
-            message = result.Message;
-            messageIsError = !result.Ok;
-
-            await ReloadItems();
-            await LoadRecommendations();
-        }
-        catch (Exception)
-        {
-            messageIsError = true;
-            message = "We could not place your order. Please try again.";
-        }
-        finally
-        {
-            busy = false;
-        }
-    }
-}
