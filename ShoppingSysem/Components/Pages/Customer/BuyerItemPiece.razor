@@ -5,11 +5,18 @@
         <p class="reason">@Reason</p>
     }
     <h3>@Item.Name</h3>
-    @if (!string.IsNullOrWhiteSpace(Item.Description))
-    {
-        <p class="description">@Item.Description</p>
-    }
     <p class="meta">@(Item.Category ?? "General")</p>
+    @if (!string.IsNullOrWhiteSpace(Item.ShortDescription))
+    {
+        <p class="description-short">@Item.ShortDescription</p>
+    }
+    @if (!string.IsNullOrWhiteSpace(Item.FullDescription))
+    {
+        <details class="description-full">
+            <summary>Full description</summary>
+            <p>@Item.FullDescription</p>
+        </details>
+    }
     <p class="figure">Rs @Item.Price.ToString("N0")</p>
     <p class="stock @(Item.Stock > 0 ? "in" : "out")">
         @(Item.Stock > 0 ? $"{Item.Stock} in stock" : "Out of stock")

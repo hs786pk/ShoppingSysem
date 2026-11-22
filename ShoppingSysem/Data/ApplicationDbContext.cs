@@ -26,7 +26,8 @@ namespace ShoppingSysem.Data
             builder.Entity<Item>(e =>
             {
                 e.Property(i => i.Name).HasMaxLength(ValidationLimits.ItemNameMaxLength);
-                e.Property(i => i.Description).HasMaxLength(ValidationLimits.ItemDescriptionMaxLength);
+                e.Property(i => i.ShortDescription).HasMaxLength(250);
+                e.Property(i => i.FullDescription).HasMaxLength(5000);
                 e.Property(i => i.Price).HasPrecision(18, 2);
                 e.Property(i => i.Category).HasMaxLength(ValidationLimits.CategoryMaxLength);
                 e.HasOne(i => i.Shop)

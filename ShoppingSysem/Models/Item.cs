@@ -12,8 +12,11 @@ namespace ShoppingSysem.Models
         [MaxLength(ValidationLimits.ItemNameMaxLength)]
         public string Name { get; set; } = string.Empty;
 
-        [MaxLength(ValidationLimits.ItemDescriptionMaxLength)]
-        public string? Description { get; set; }
+        [MaxLength(250)]
+        public string? ShortDescription { get; set; }
+
+        [MaxLength(5000)]
+        public string? FullDescription { get; set; }
 
         [Range(0, (double)ValidationLimits.MaxPrice)]
         public decimal Price { get; set; }
