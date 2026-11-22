@@ -8,6 +8,7 @@
 public static class ValidationLimits
 {
     public const int ItemNameMaxLength = 100;
+    public const int ItemDescriptionMaxLength = 1000;
     public const int CategoryMaxLength = 100;
     public const int ShopNameMaxLength = 100;
     public const int ShopLocationMaxLength = 200;

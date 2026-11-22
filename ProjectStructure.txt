@@ -1,0 +1,199 @@
+# Project Structure
+
+```
+ShoppingSysem/
+├── ShoppingSysem
+│   ├── Components
+│   │   ├── Account
+│   │   │   ├── Pages
+│   │   │   │   ├── Manage
+│   │   │   │   │   ├── _Imports.razor
+│   │   │   │   │   ├── ChangePassword.razor
+│   │   │   │   │   ├── ChangePassword.razor.cs
+│   │   │   │   │   ├── DeletePersonalData.razor
+│   │   │   │   │   ├── DeletePersonalData.razor.cs
+│   │   │   │   │   ├── Disable2fa.razor
+│   │   │   │   │   ├── Disable2fa.razor.cs
+│   │   │   │   │   ├── Email.razor
+│   │   │   │   │   ├── Email.razor.cs
+│   │   │   │   │   ├── EnableAuthenticator.razor
+│   │   │   │   │   ├── EnableAuthenticator.razor.cs
+│   │   │   │   │   ├── ExternalLogins.razor
+│   │   │   │   │   ├── ExternalLogins.razor.cs
+│   │   │   │   │   ├── GenerateRecoveryCodes.razor
+│   │   │   │   │   ├── GenerateRecoveryCodes.razor.cs
+│   │   │   │   │   ├── Index.razor
+│   │   │   │   │   ├── Index.razor.cs
+│   │   │   │   │   ├── Passkeys.razor
+│   │   │   │   │   ├── Passkeys.razor.cs
+│   │   │   │   │   ├── PersonalData.razor
+│   │   │   │   │   ├── PersonalData.razor.cs
+│   │   │   │   │   ├── RenamePasskey.razor
+│   │   │   │   │   ├── RenamePasskey.razor.cs
+│   │   │   │   │   ├── ResetAuthenticator.razor
+│   │   │   │   │   ├── ResetAuthenticator.razor.cs
+│   │   │   │   │   ├── SetPassword.razor
+│   │   │   │   │   ├── SetPassword.razor.cs
+│   │   │   │   │   ├── TwoFactorAuthentication.razor
+│   │   │   │   │   └── TwoFactorAuthentication.razor.cs
+│   │   │   │   ├── _Imports.razor
+│   │   │   │   ├── AccessDenied.razor
+│   │   │   │   ├── ConfirmEmail.razor
+│   │   │   │   ├── ConfirmEmail.razor.cs
+│   │   │   │   ├── ConfirmEmailChange.razor
+│   │   │   │   ├── ConfirmEmailChange.razor.cs
+│   │   │   │   ├── ExternalLogin.razor
+│   │   │   │   ├── ExternalLogin.razor.cs
+│   │   │   │   ├── ForgotPassword.razor
+│   │   │   │   ├── ForgotPassword.razor.cs
+│   │   │   │   ├── ForgotPasswordConfirmation.razor
+│   │   │   │   ├── InvalidPasswordReset.razor
+│   │   │   │   ├── InvalidUser.razor
+│   │   │   │   ├── Lockout.razor
+│   │   │   │   ├── Login.razor
+│   │   │   │   ├── Login.razor.cs
+│   │   │   │   ├── LoginWith2fa.razor
+│   │   │   │   ├── LoginWith2fa.razor.cs
+│   │   │   │   ├── LoginWithRecoveryCode.razor
+│   │   │   │   ├── LoginWithRecoveryCode.razor.cs
+│   │   │   │   ├── Register.razor
+│   │   │   │   ├── Register.razor.cs
+│   │   │   │   ├── RegisterConfirmation.razor
+│   │   │   │   ├── RegisterConfirmation.razor.cs
+│   │   │   │   ├── ResendEmailConfirmation.razor
+│   │   │   │   ├── ResendEmailConfirmation.razor.cs
+│   │   │   │   ├── ResetPassword.razor
+│   │   │   │   ├── ResetPassword.razor.cs
+│   │   │   │   └── ResetPasswordConfirmation.razor
+│   │   │   ├── Shared
+│   │   │   │   ├── ExternalLoginPicker.razor
+│   │   │   │   ├── ExternalLoginPicker.razor.cs
+│   │   │   │   ├── ManageLayout.razor
+│   │   │   │   ├── ManageNavMenu.razor
+│   │   │   │   ├── ManageNavMenu.razor.cs
+│   │   │   │   ├── PasskeySubmit.razor
+│   │   │   │   ├── PasskeySubmit.razor.cs
+│   │   │   │   ├── PasskeySubmit.razor.js
+│   │   │   │   ├── RedirectToLogin.razor
+│   │   │   │   ├── RedirectToLogin.razor.cs
+│   │   │   │   ├── ShowRecoveryCodes.razor
+│   │   │   │   ├── ShowRecoveryCodes.razor.cs
+│   │   │   │   ├── StatusMessage.razor
+│   │   │   │   └── StatusMessage.razor.cs
+│   │   │   ├── DevelopmentEmailSender.cs
+│   │   │   ├── IdentityComponentsEndpointRouteBuilderExtensions.cs
+│   │   │   ├── IdentityRedirectManager.cs
+│   │   │   ├── IdentityRevalidatingAuthenticationStateProvider.cs
+│   │   │   ├── PasskeyInputModel.cs
+│   │   │   ├── PasskeyOperation.cs
+│   │   │   └── SmtpEmailSender.cs
+│   │   ├── Layout
+│   │   │   ├── MainLayout.razor
+│   │   │   ├── MainLayout.razor.css
+│   │   │   ├── NavMenu.razor
+│   │   │   ├── NavMenu.razor.cs
+│   │   │   ├── PageLoadingBar.razor
+│   │   │   ├── PageLoadingBar.razor.cs
+│   │   │   ├── ReconnectModal.razor
+│   │   │   ├── ReconnectModal.razor.css
+│   │   │   └── ReconnectModal.razor.js
+│   │   ├── Pages
+│   │   │   ├── Admin
+│   │   │   │   ├── AdminHome.razor
+│   │   │   │   ├── ManageItems.razor
+│   │   │   │   ├── ManageItems.razor.cs
+│   │   │   │   ├── ManageShopkeepers.razor
+│   │   │   │   ├── ManageShopkeepers.razor.cs
+│   │   │   │   ├── ManageShops.razor
+│   │   │   │   └── ManageShops.razor.cs
+│   │   │   ├── Customer
+│   │   │   │   ├── BuyerHome.razor
+│   │   │   │   ├── BuyerHome.razor.cs
+│   │   │   │   ├── BuyerItemPiece.razor
+│   │   │   │   ├── BuyerItemPiece.razor.cs
+│   │   │   │   ├── MyOrders.razor
+│   │   │   │   └── MyOrders.razor.cs
+│   │   │   ├── Auth.razor
+│   │   │   ├── Counter.razor
+│   │   │   ├── Counter.razor.cs
+│   │   │   ├── Error.razor
+│   │   │   ├── Error.razor.cs
+│   │   │   ├── Home.razor
+│   │   │   ├── Home.razor.cs
+│   │   │   ├── MakeSale.razor
+│   │   │   ├── MakeSale.razor.cs
+│   │   │   ├── NotFound.razor
+│   │   │   ├── SalesHistory.razor
+│   │   │   ├── SalesHistory.razor.cs
+│   │   │   ├── ShopkeeperHome.razor
+│   │   │   ├── ShopOrders.razor
+│   │   │   ├── ShopOrders.razor.cs
+│   │   │   ├── Weather.razor
+│   │   │   └── Weather.razor.cs
+│   │   ├── _Imports.razor
+│   │   ├── App.razor
+│   │   ├── App.razor.cs
+│   │   └── Routes.razor
+│   ├── Data
+│   │   ├── Migrations
+│   │   │   ├── 00000000000000_CreateIdentitySchema.cs
+│   │   │   ├── 00000000000000_CreateIdentitySchema.Designer.cs
+│   │   │   ├── 20260815042232_InitialIdentitySchema.cs
+│   │   │   ├── 20260815042232_InitialIdentitySchema.Designer.cs
+│   │   │   ├── 20260815045913_AddShopManagementTables.cs
+│   │   │   ├── 20260815045913_AddShopManagementTables.Designer.cs
+│   │   │   ├── 20261028150547_AddCustomerInterestAndItemCategory.cs
+│   │   │   ├── 20261028150547_AddCustomerInterestAndItemCategory.Designer.cs
+│   │   │   ├── 20261028154418_AddOrders.cs
+│   │   │   ├── 20261028154418_AddOrders.Designer.cs
+│   │   │   ├── 20261028155927_CreateOrders.cs
+│   │   │   ├── 20261028155927_CreateOrders.Designer.cs
+│   │   │   ├── 20261119172012_AddQueryIndexes.cs
+│   │   │   ├── 20261119172012_AddQueryIndexes.Designer.cs
+│   │   │   ├── 20261121044638_SyncPendingModel.cs
+│   │   │   ├── 20261121044638_SyncPendingModel.Designer.cs
+│   │   │   ├── 20261121090000_AddPerformanceIndexesAndConstraints.cs
+│   │   │   └── ApplicationDbContextModelSnapshot.cs
+│   │   ├── ApplicationDbContext.cs
+│   │   ├── ApplicationDbContextFactory.cs
+│   │   ├── ApplicationUser.cs
+│   │   ├── AppRoles.cs
+│   │   └── ValidationLimits.cs
+│   ├── Models
+│   │   ├── CustomerInterest.cs
+│   │   ├── Item.cs
+│   │   ├── Order.cs
+│   │   ├── Sale.cs
+│   │   ├── Shop.cs
+│   │   └── ShopAssignment.cs
+│   ├── Properties
+│   │   ├── PublishProfiles
+│   │   ├── launchSettings.json
+│   │   ├── serviceDependencies.json
+│   │   └── serviceDependencies.local.json
+│   ├── Services
+│   │   ├── OrderService.cs
+│   │   ├── RecommendationService.cs
+│   │   └── ShopAccessService.cs
+│   ├── wwwroot
+│   │   ├── lib
+│   │   │   └── bootstrap
+│   │   │       └── dist
+│   │   │           ├── css
+│   │   │           └── js
+│   │   ├── app.css
+│   │   └── favicon.png
+│   ├── appsettings.Development.json
+│   ├── appsettings.json
+│   ├── Program.cs
+│   └── ShoppingSystem.csproj
+├── ShoppingSystem.Tests
+│   ├── AppSecurityTests.cs
+│   ├── MigrationVerificationTests.cs
+│   ├── SaleSecurityTests.cs
+│   ├── SecurityTests.cs
+│   ├── ShoppingSystem.Tests.csproj
+│   ├── SqlServerConcurrencyTests.cs
+│   └── TestSupport.cs
+└── ShoppingSystem.slnx
+```

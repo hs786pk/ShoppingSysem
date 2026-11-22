@@ -11,6 +11,7 @@ namespace ShoppingSysem.Components.Pages.Admin
     {
         // Limits come from ValidationLimits so forms stay aligned with models.
 
+        [Inject] private ApplicationDbContext DbContext { get; set; } = default!;
         [Inject] private AuthenticationStateProvider AuthStateProvider { get; set; } = default!;
         [Inject] private UserManager<ApplicationUser> UserManager { get; set; } = default!;
         [Inject] private ILogger<ManageItems> Logger { get; set; } = default!;
@@ -19,7 +20,8 @@ namespace ShoppingSysem.Components.Pages.Admin
         List<Item> items = new();
 
         int selectedShopId = 0;
-        string newItemName = "";
+        string newProductTitle = "";
+        string newItemDescription = "";
         string newItemPrice = "";
         string newItemStock = "";
         string newItemCategory = "";
@@ -46,7 +48,7 @@ namespace ShoppingSysem.Components.Pages.Admin
         }
 
         // Single place for field rules shared by add and update.
-        private static string? ValidateFields(decimal price, int stock, string? category)
+        private static string? ValidateFields(decimal price, int stock, string? category, string? description)
         {
             if (price < 0 || price > ValidationLimits.MaxPrice || decimal.Round(price, 2) != price)
                 return $"Price must be between 0 and {ValidationLimits.MaxPrice:N0} with at most 2 decimal places.";
@@ -56,6 +58,9 @@ namespace ShoppingSysem.Components.Pages.Admin
 
             if (category is { Length: > ValidationLimits.CategoryMaxLength })
                 return $"Category cannot exceed {ValidationLimits.CategoryMaxLength} characters.";
+
+            if (description is { Length: > ValidationLimits.ItemDescriptionMaxLength })
+                return $"Product description cannot exceed {ValidationLimits.ItemDescriptionMaxLength} characters.";
 
             return null;
         }
@@ -151,17 +156,17 @@ namespace ShoppingSysem.Components.Pages.Admin
                 return;
             }
 
-            if (string.IsNullOrWhiteSpace(newItemName))
+            if (string.IsNullOrWhiteSpace(newProductTitle))
             {
-                errorMessage = "Item name is required.";
+                errorMessage = "Product title is required.";
                 return;
             }
 
-            var name = newItemName.Trim();
+            var name = newProductTitle.Trim();
 
             if (name.Length > ValidationLimits.ItemNameMaxLength)
             {
-                errorMessage = $"Item name cannot exceed {ValidationLimits.ItemNameMaxLength} characters.";
+                errorMessage = $"Product title cannot exceed {ValidationLimits.ItemNameMaxLength} characters.";
                 return;
             }
 
@@ -183,7 +188,11 @@ namespace ShoppingSysem.Components.Pages.Admin
                 ? null
                 : newItemCategory.Trim();
 
-            var fieldError = ValidateFields(price, stock, category);
+            var description = string.IsNullOrWhiteSpace(newItemDescription)
+                ? null
+                : newItemDescription.Trim();
+
+            var fieldError = ValidateFields(price, stock, category, description);
 
             if (fieldError is not null)
             {
@@ -193,12 +202,13 @@ namespace ShoppingSysem.Components.Pages.Admin
             if (await DbContext.Items.AnyAsync(i =>
                   i.ShopId == selectedShopId && i.Name == name))
             {
-                errorMessage = "An item with this name already exists in the shop.";
+                errorMessage = "A product with this title already exists in the shop.";
                 return;
             }
             var item = new Item
             {
                 Name = name,
+                Description = description,
                 Price = price,
                 Stock = stock,
                 Category = category,
@@ -216,7 +226,8 @@ namespace ShoppingSysem.Components.Pages.Admin
                 item.Id,
                 item.ShopId);
 
-            newItemName = "";
+            newProductTitle = "";
+            newItemDescription = "";
             newItemPrice = "";
             newItemStock = "";
             newItemCategory = "";
@@ -241,11 +252,22 @@ namespace ShoppingSysem.Components.Pages.Admin
                 return;
             }
 
+            var name = item.Name?.Trim();
+            if (string.IsNullOrWhiteSpace(name) || name.Length > ValidationLimits.ItemNameMaxLength)
+            {
+                errorMessage = $"Product title is required and cannot exceed {ValidationLimits.ItemNameMaxLength} characters.";
+                return;
+            }
+
             var category = string.IsNullOrWhiteSpace(item.Category)
                 ? null
                 : item.Category.Trim();
 
-            var fieldError = ValidateFields(item.Price, item.Stock, category);
+            var description = string.IsNullOrWhiteSpace(item.Description)
+                ? null
+                : item.Description.Trim();
+
+            var fieldError = ValidateFields(item.Price, item.Stock, category, description);
 
             if (fieldError is not null)
             {
@@ -264,9 +286,18 @@ namespace ShoppingSysem.Components.Pages.Admin
                 return;
             }
 
+            if (await DbContext.Items.AnyAsync(i =>
+                i.ShopId == selectedShopId && i.Id != item.Id && i.Name == name))
+            {
+                errorMessage = "A product with this title already exists in the shop.";
+                return;
+            }
+
+            existingItem.Name = name;
             existingItem.Price = item.Price;
             existingItem.Stock = item.Stock;
             existingItem.Category = category;
+            existingItem.Description = description;
 
             if (!await TrySaveAsync("update the item"))
                 return;

@@ -81,6 +81,8 @@ public sealed class MigrationVerificationTests
         Assert.Contains("b.HasIndex(\"ShopId\", \"Name\")", text);
         Assert.Contains("b.HasIndex(\"Category\")", text);
         Assert.Contains("b.HasIndex(\"Name\")", text);
+        Assert.Contains("b.Property<string>(\"Description\")", text);
+        Assert.Contains(".HasMaxLength(1000)", text);
 
         // Orders
         Assert.Contains("b.HasIndex(\"CustomerId\", \"OrderedAt\")", text);
@@ -145,6 +147,7 @@ public sealed class MigrationVerificationTests
         Assert.Contains("AddPerformanceIndexesAndConstraints", migrationTypes);
         Assert.Contains("CreateOrders", migrationTypes);
         Assert.Contains("AddShopManagementTables", migrationTypes);
+        Assert.Contains("AddItemDescription", migrationTypes);
     }
 
     [Fact]
