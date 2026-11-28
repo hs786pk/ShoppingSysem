@@ -41,7 +41,13 @@
             <tr>
                 <td>@sale.SaleDate.ToString("g")</td>
                 <td>@sale.Shop.Name</td>
-                <td>@sale.Item.Name</td>
+                <td>
+                    @sale.Item.Name
+                    @if (!string.IsNullOrEmpty(sale.VariantLabel))
+                    {
+                        <br /><small class="text-muted">@sale.VariantLabel</small>
+                    }
+                </td>
                 <td>@sale.QuantitySold</td>
                 <td>Rs. @sale.TotalPrice</td>
             </tr>

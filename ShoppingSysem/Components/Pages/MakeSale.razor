@@ -29,13 +29,25 @@
 {
     <div class="mb-3" style="max-width:300px;">
         <label>Item:</label>
-        <select class="form-control" @bind="selectedItemId">
+        <select class="form-control" @bind="selectedItemId" @bind:after="LoadVariants">
             <option value="0">-- Select item --</option>
             @foreach (var item in items)
             {
                 <option value="@item.Id">@item.Name (Rs. @item.Price, Stock: @item.Stock)</option>
             }
         </select>
+
+        @if (selectedItemId != 0 && variants.Count > 0)
+        {
+            <label class="mt-2">Option:</label>
+            <select class="form-control" @bind="selectedVariantId">
+                <option value="0">-- Select option --</option>
+                @foreach (var v in variants)
+                {
+                    <option value="@v.Id">@VariantDisplay(v) (Rs. @v.Price, Stock: @v.Stock)</option>
+                }
+            </select>
+        }
 
         <label class="mt-2">Quantity:</label>
         <input @bind="quantity" class="form-control" />

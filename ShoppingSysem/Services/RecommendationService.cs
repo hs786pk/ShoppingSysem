@@ -91,8 +91,7 @@ public class RecommendationService : IRecommendationService
         {
             var item = await _db.Items
                 .AsNoTracking()
-                .FirstOrDefaultAsync(i => i.Id == itemId);
-
+                .FirstOrDefaultAsync(i => i.Id == itemId && i.Status == ProductStatus.Active);
             if (item is null)
                 return;
 
@@ -181,14 +180,17 @@ public class RecommendationService : IRecommendationService
             ? popularity.Values.Max()
             : 0;
 
-        // Prefer in-stock items; still allow a small out-of-stock sample for ranking.
         var items = await _db.Items
             .AsNoTracking()
+            .Where(i => i.Status == ProductStatus.Active)
+            .Include(i => i.Images.Where(p => p.IsPrimary))
+            .Include(i => i.Variants.Where(v => v.IsActive))
+            .Include(i => i.Attributes)
+            .AsSplitQuery()
             .OrderByDescending(i => i.Stock > 0)
             .ThenBy(i => i.Name)
             .Take(500)
             .ToListAsync();
-
         var hasHistory = maxAffinity > 0;
 
         var scored = items.Select(item =>

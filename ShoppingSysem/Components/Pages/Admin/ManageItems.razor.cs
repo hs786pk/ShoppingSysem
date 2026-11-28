@@ -23,6 +23,9 @@ namespace ShoppingSysem.Components.Pages.Admin
         string newItemPrice = "";
         string newItemStock = "";
         string newItemCategory = "";
+        string newItemSubcategory = "";
+        string newItemSku = "";
+        string newItemBrand = "";
         string newItemShortDescription = "";
         string newItemFullDescription = "";
         string? errorMessage;
@@ -47,22 +50,8 @@ namespace ShoppingSysem.Components.Pages.Admin
             return false;
         }
 
-        private static string? NormalizeDescription(string? value) =>
-            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-
-        private static string? ValidateDescriptions(string? shortDescription, string? fullDescription)
-        {
-            if (shortDescription is { Length: > 250 })
-                return "Short description cannot exceed 250 characters.";
-
-            if (fullDescription is { Length: > 5000 })
-                return "Full description cannot exceed 5000 characters.";
-
-            return null;
-        }
-
         // Single place for field rules shared by add and update.
-        private static string? ValidateFields(decimal price, int stock, string? category)
+        private static string? ValidateFields(decimal price, int stock, string? category, string? subcategory, string? sku, string? brand, string? shortDescription)
         {
             if (price < 0 || price > ValidationLimits.MaxPrice || decimal.Round(price, 2) != price)
                 return $"Price must be between 0 and {ValidationLimits.MaxPrice:N0} with at most 2 decimal places.";
@@ -73,6 +62,14 @@ namespace ShoppingSysem.Components.Pages.Admin
             if (category is { Length: > ValidationLimits.CategoryMaxLength })
                 return $"Category cannot exceed {ValidationLimits.CategoryMaxLength} characters.";
 
+            if (subcategory is { Length: > ValidationLimits.CategoryMaxLength })
+                return $"Subcategory cannot exceed {ValidationLimits.CategoryMaxLength} characters.";
+            if (string.IsNullOrWhiteSpace(sku) || sku.Length > ValidationLimits.SkuMaxLength)
+                return $"SKU is required and cannot exceed {ValidationLimits.SkuMaxLength} characters.";
+            if (brand is { Length: > ValidationLimits.BrandMaxLength })
+                return $"Brand cannot exceed {ValidationLimits.BrandMaxLength} characters.";
+            if (shortDescription is { Length: > ValidationLimits.ShortDescriptionMaxLength })
+                return $"Short description cannot exceed {ValidationLimits.ShortDescriptionMaxLength} characters.";
             return null;
         }
 
@@ -199,16 +196,12 @@ namespace ShoppingSysem.Components.Pages.Admin
                 ? null
                 : newItemCategory.Trim();
 
-            var shortDescription = NormalizeDescription(newItemShortDescription);
-            var fullDescription = NormalizeDescription(newItemFullDescription);
-            var descriptionError = ValidateDescriptions(shortDescription, fullDescription);
-            if (descriptionError is not null)
-            {
-                errorMessage = descriptionError;
-                return;
-            }
-
-            var fieldError = ValidateFields(price, stock, category);
+            var sku = newItemSku.Trim();
+            var brand = string.IsNullOrWhiteSpace(newItemBrand) ? null : newItemBrand.Trim();
+            var subcategory = string.IsNullOrWhiteSpace(newItemSubcategory) ? null : newItemSubcategory.Trim();
+            var shortDescription = string.IsNullOrWhiteSpace(newItemShortDescription) ? null : newItemShortDescription.Trim();
+            var fullDescription = string.IsNullOrWhiteSpace(newItemFullDescription) ? null : newItemFullDescription.Trim();
+            var fieldError = ValidateFields(price, stock, category, subcategory, sku, brand, shortDescription);
 
             if (fieldError is not null)
             {
@@ -221,14 +214,23 @@ namespace ShoppingSysem.Components.Pages.Admin
                 errorMessage = "An item with this name already exists in the shop.";
                 return;
             }
+            if (await DbContext.Items.AnyAsync(i => i.ShopId == selectedShopId && i.SKU == sku))
+            {
+                errorMessage = "This SKU is already used by another product in the selected shop.";
+                return;
+            }
+
             var item = new Item
             {
                 Name = name,
+                SKU = sku,
+                Brand = brand,
+                ShortDescription = shortDescription,
+                FullDescription = fullDescription,
+                Subcategory = subcategory,
                 Price = price,
                 Stock = stock,
                 Category = category,
-                ShortDescription = shortDescription,
-                FullDescription = fullDescription,
                 ShopId = selectedShopId
             };
 
@@ -247,6 +249,9 @@ namespace ShoppingSysem.Components.Pages.Admin
             newItemPrice = "";
             newItemStock = "";
             newItemCategory = "";
+            newItemSubcategory = "";
+            newItemSku = "";
+            newItemBrand = "";
             newItemShortDescription = "";
             newItemFullDescription = "";
 
@@ -274,16 +279,11 @@ namespace ShoppingSysem.Components.Pages.Admin
                 ? null
                 : item.Category.Trim();
 
-            var shortDescription = NormalizeDescription(item.ShortDescription);
-            var fullDescription = NormalizeDescription(item.FullDescription);
-            var descriptionError = ValidateDescriptions(shortDescription, fullDescription);
-            if (descriptionError is not null)
-            {
-                errorMessage = descriptionError;
-                return;
-            }
-
-            var fieldError = ValidateFields(item.Price, item.Stock, category);
+            var subcategory = string.IsNullOrWhiteSpace(item.Subcategory) ? null : item.Subcategory.Trim();
+            var sku = item.SKU?.Trim() ?? string.Empty;
+            var brand = string.IsNullOrWhiteSpace(item.Brand) ? null : item.Brand.Trim();
+            var shortDescription = string.IsNullOrWhiteSpace(item.ShortDescription) ? null : item.ShortDescription.Trim();
+            var fieldError = ValidateFields(item.Price, item.Stock, category, subcategory, sku, brand, shortDescription);
 
             if (fieldError is not null)
             {
@@ -302,11 +302,20 @@ namespace ShoppingSysem.Components.Pages.Admin
                 return;
             }
 
+            if (await DbContext.Items.AnyAsync(i => i.ShopId == selectedShopId && i.Id != item.Id && i.SKU == sku))
+            {
+                errorMessage = "This SKU is already used by another product in the selected shop.";
+                return;
+            }
+
+            existingItem.SKU = sku;
+            existingItem.Brand = brand;
+            existingItem.ShortDescription = shortDescription;
+            existingItem.FullDescription = item.FullDescription;
+            existingItem.Subcategory = subcategory;
             existingItem.Price = item.Price;
             existingItem.Stock = item.Stock;
             existingItem.Category = category;
-            existingItem.ShortDescription = shortDescription;
-            existingItem.FullDescription = fullDescription;
 
             if (!await TrySaveAsync("update the item"))
                 return;

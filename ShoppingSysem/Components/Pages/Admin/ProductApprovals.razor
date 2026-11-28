@@ -1,0 +1,85 @@
+﻿@page "/admin/approvals"
+@attribute [Authorize(Roles = AppRoles.Admin)]
+@rendermode InteractiveServer
+@using ShoppingSysem.Models
+
+<PageTitle>Product approvals</PageTitle>
+
+<header class="mast">
+    <p class="kicker">Admin</p>
+    <h1>Product approvals.</h1>
+    <p class="dek">Products submitted by shopkeepers wait here until you approve or reject them.</p>
+</header>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
+}
+
+@if (products.Count == 0)
+{
+    <p class="text-muted">No products are waiting for approval.</p>
+}
+else
+{
+    <table class="table">
+        <thead>
+            <tr>
+                <th></th>
+                <th>Product</th>
+                <th>Shop</th>
+                <th>Price</th>
+                <th>Stock</th>
+                <th>Submitted</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var item in products)
+            {
+                <tr>
+                    <td>
+                        @if (ThumbUrl(item) is { } url)
+                        {
+                            <img src="@url" alt="@item.Name" width="96" height="96" style="object-fit:cover;" />
+                        }
+                    </td>
+                    <td style="min-width:260px;">
+                        <strong>@item.Name</strong><br />
+                        <span class="meta">@item.SKU · @item.Condition@(item.Brand is null ? "" : " · " + item.Brand)</span>
+                        <p class="meta">@(item.Category ?? "General")@(item.Subcategory is null ? "" : " / " + item.Subcategory)</p>
+                        @if (!string.IsNullOrWhiteSpace(item.ShortDescription))
+                        {
+                            <p>@item.ShortDescription</p>
+                        }
+                        @if (!string.IsNullOrWhiteSpace(item.FullDescription))
+                        {
+                            <details>
+                                <summary>Full description</summary>
+                                <p style="white-space:pre-line;">@item.FullDescription</p>
+                            </details>
+                        }
+                    </td>
+                    <td>@item.Shop.Name</td>
+                    <td>Rs. @item.Price.ToString("N0")</td>
+                    <td>@item.Stock</td>
+                    <td>@item.UpdatedAt.ToLocalTime().ToString("g")</td>
+                    <td style="min-width:240px;">
+                        @if (rejectingId == item.Id)
+                        {
+                            <textarea class="form-control mb-2" rows="3" maxlength="@ProductLimits.RejectionReasonMaxLength"
+                                      placeholder="Reason for rejection" @bind="rejectReason" @bind:event="oninput"></textarea>
+                            <button class="btn btn-sm btn-danger" disabled="@busy" @onclick="() => ConfirmReject(item.Id)">Confirm reject</button>
+                            <button class="btn btn-sm btn-secondary" @onclick="CancelReject">Cancel</button>
+                        }
+                        else
+                        {
+                            <button class="btn btn-sm btn-success me-1" disabled="@busy" @onclick="() => Approve(item.Id)">Approve</button>
+                            <button class="btn btn-sm btn-outline-danger" disabled="@busy" @onclick="() => StartReject(item.Id)">Reject</button>
+                        }
+                    </td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}

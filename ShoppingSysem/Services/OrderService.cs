@@ -12,7 +12,7 @@ public sealed record OrderResult(bool Ok, string Message, Order? Order = null);
 
 public interface IOrderService
 {
-    Task<OrderResult> PlaceAsync(string customerId, int itemId, int quantity = 1);
+    Task<OrderResult> PlaceAsync(string customerId, int itemId, int quantity = 1, int? variantId = null); 
     Task<List<Order>> GetForCustomerAsync(string customerId);
     Task<List<Order>> GetForShopkeeperAsync(string shopkeeperId);
     Task<OrderResult> FulfillAsync(string shopkeeperId, int orderId);
@@ -64,16 +64,17 @@ public class OrderService : IOrderService
     public async Task<OrderResult> PlaceAsync(
         string customerId,
         int itemId,
-        int quantity = 1)
+        int quantity = 1,
+        int? variantId = null)
     {
         try
         {
-            var result = await PlaceCoreAsync(customerId, itemId, quantity);
+            var result = await PlaceCoreAsync(customerId, itemId, quantity, variantId);
 
             if (result.Ok)
                 _logger.LogInformation(
-                    "Order {OrderId} placed by {CustomerId}: item {ItemId} x {Quantity}.",
-                    result.Order?.Id, customerId, itemId, quantity);
+                    "Order {OrderId} placed by {CustomerId}: item {ItemId} variant {VariantId} x {Quantity}.",
+                    result.Order?.Id, customerId, itemId, variantId, quantity);
 
             return result;
         }
@@ -87,10 +88,18 @@ public class OrderService : IOrderService
         }
     }
 
+    // "Large / Red / Cotton"; null when the variant has no options.
+    private static string? VariantLabelOf(ProductVariant v)
+    {
+        var label = string.Join(" / ", new[] { v.Size, v.Colour, v.Model, v.Material }
+            .Where(p => !string.IsNullOrWhiteSpace(p)));
+        return label.Length > 0 ? label : v.SKU;
+    }
     private async Task<OrderResult> PlaceCoreAsync(
         string customerId,
         int itemId,
-        int quantity)
+        int quantity,
+        int? variantId)
     {
         var currentUser = await GetCurrentUserAsync();
         if (currentUser == null)
@@ -135,43 +144,89 @@ public class OrderService : IOrderService
         if (item is null)
             return new(false, "That product no longer exists.");
 
-        if (item.Price < 0 ||
-            item.Price > ValidationLimits.MaxPrice ||
-            decimal.Round(item.Price, 2) != item.Price)
+        // Only approved, active products can be ordered.
+        if (item.Status != ProductStatus.Active)
+            return new(false, "That product is not available.");
+
+        if (item.ShopId <= 0)
+            return new(false, "Invalid product shop.");
+
+        // The variant must belong to this product and be active.
+        // Products that have variants cannot be bought without choosing one.
+        ProductVariant? variant = null;
+        if (variantId is not null)
+        {
+            variant = await _db.ProductVariants
+                .AsNoTracking()
+                .FirstOrDefaultAsync(v =>
+                    v.Id == variantId && v.ItemId == itemId && v.IsActive);
+
+            if (variant is null)
+                return new(false, "That option is not available.");
+        }
+        else if (await _db.ProductVariants.AnyAsync(v => v.ItemId == itemId && v.IsActive))
+        {
+            return new(false, "Please choose an option.");
+        }
+
+        var unitPrice = variant?.Price ?? item.Price;
+
+        if (unitPrice < 0 ||
+            unitPrice > ValidationLimits.MaxPrice ||
+            decimal.Round(unitPrice, 2) != unitPrice)
             return new(false, "Invalid product price.");
 
         decimal totalPrice;
 
         try
         {
-            totalPrice = checked(item.Price * quantity);
+            totalPrice = checked(unitPrice * quantity);
         }
         catch (OverflowException)
         {
             return new(false, "The order total is invalid.");
         }
 
-        if (item.ShopId <= 0)
-            return new(false, "Invalid product shop.");
-
         // Atomic stock deduction prevents overselling.
-        var taken = await _db.Items
-            .Where(i =>
-                i.Id == itemId &&
-                i.ShopId == item.ShopId &&
-                i.Stock >= quantity)
-            .ExecuteUpdateAsync(s =>
-                s.SetProperty(
-                    i => i.Stock,
-                    i => i.Stock - quantity));
+        int taken;
+        if (variant is not null)
+        {
+            var vid = variant.Id;
+            taken = await _db.ProductVariants
+                .Where(v =>
+                    v.Id == vid &&
+                    v.ItemId == itemId &&
+                    v.IsActive &&
+                    v.Item.Status == ProductStatus.Active &&
+                    v.Stock >= quantity)
+                .ExecuteUpdateAsync(s =>
+                    s.SetProperty(v => v.Stock, v => v.Stock - quantity));
+        }
+        else
+        {
+            taken = await _db.Items
+                .Where(i =>
+                    i.Id == itemId &&
+                    i.ShopId == item.ShopId &&
+                    i.Status == ProductStatus.Active &&
+                    i.Stock >= quantity)
+                .ExecuteUpdateAsync(s =>
+                    s.SetProperty(i => i.Stock, i => i.Stock - quantity));
+        }
 
         if (taken == 0)
         {
-            var left = await _db.Items
-                .AsNoTracking()
-                .Where(i => i.Id == itemId)
-                .Select(i => (int?)i.Stock)
-                .FirstOrDefaultAsync();
+            var left = variant is not null
+                ? await _db.ProductVariants
+                    .AsNoTracking()
+                    .Where(v => v.Id == variant.Id)
+                    .Select(v => (int?)v.Stock)
+                    .FirstOrDefaultAsync()
+                : await _db.Items
+                    .AsNoTracking()
+                    .Where(i => i.Id == itemId)
+                    .Select(i => (int?)i.Stock)
+                    .FirstOrDefaultAsync();
 
             return new(false, left.HasValue
                 ? left.Value <= 0
@@ -180,13 +235,17 @@ public class OrderService : IOrderService
                 : "That product is no longer available.");
         }
 
+        var label = variant is null ? null : VariantLabelOf(variant);
+
         var order = new Order
         {
             CustomerId = currentUser.Id,
             ItemId = item.Id,
+            VariantId = variant?.Id,
+            VariantLabel = label,
             ShopId = item.ShopId,
             Quantity = quantity,
-            UnitPrice = item.Price,
+            UnitPrice = unitPrice,
             TotalPrice = totalPrice,
             OrderedAt = DateTime.UtcNow,
             Status = OrderStatus.Placed
@@ -210,10 +269,9 @@ public class OrderService : IOrderService
 
         return new(
             true,
-            $"Order placed: {quantity} x {item.Name} = Rs. {order.TotalPrice:N0}.",
+            $"Order placed: {quantity} x {item.Name}{(label is null ? "" : $" ({label})")} = Rs. {order.TotalPrice:N0}.",
             order);
     }
-
     public async Task<List<Order>> GetForCustomerAsync(string customerId)
     {
         var currentUser = await GetCurrentUserAsync();
@@ -479,16 +537,23 @@ public class OrderService : IOrderService
         {
             // Restore stock only to the original item's original shop.
             // Also prevent integer overflow.
-            var restored = await _db.Items
-                .Where(i =>
-                    i.Id == order.ItemId &&
-                    i.ShopId == order.ShopId &&
-                    i.Stock <= int.MaxValue - order.Quantity)
-                .ExecuteUpdateAsync(s =>
-                    s.SetProperty(
-                        i => i.Stock,
-                        i => i.Stock + order.Quantity));
-
+            // Restore stock to the variant if the order had one, otherwise to the product.
+            // Also prevent integer overflow.
+            var restored = order.VariantId is { } variantId
+                ? await _db.ProductVariants
+                    .Where(v =>
+                        v.Id == variantId &&
+                        v.ItemId == order.ItemId &&
+                        v.Stock <= int.MaxValue - order.Quantity)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(v => v.Stock, v => v.Stock + order.Quantity))
+                : await _db.Items
+                    .Where(i =>
+                        i.Id == order.ItemId &&
+                        i.ShopId == order.ShopId &&
+                        i.Stock <= int.MaxValue - order.Quantity)
+                    .ExecuteUpdateAsync(s =>
+                        s.SetProperty(i => i.Stock, i => i.Stock + order.Quantity));
             if (restored == 0)
             {
                 // The transaction will roll back the status update too.

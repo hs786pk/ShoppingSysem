@@ -20,9 +20,11 @@ namespace ShoppingSysem.Components.Pages
 
         List<Shop> myShops = new();
         List<Item> items = new();
+        List<ProductVariant> variants = new();
 
         int selectedShopId = 0;
         int selectedItemId = 0;
+        int selectedVariantId = 0;
         string quantity = "";
 
         string? errorMessage;
@@ -44,6 +46,14 @@ namespace ShoppingSysem.Components.Pages
 
         private Task<bool> IsAssignedToShopAsync(string userId, int shopId)
             => ShopAccess.IsShopkeeperAssignedAsync(userId, shopId);
+
+        // "Large / Red"; falls back to the SKU when the variant has no options.
+        private static string VariantDisplay(ProductVariant v)
+        {
+            var label = string.Join(" / ", new[] { v.Size, v.Colour, v.Model, v.Material }
+                .Where(p => !string.IsNullOrWhiteSpace(p)));
+            return label.Length > 0 ? label : v.SKU;
+        }
 
         protected override async Task OnInitializedAsync()
         {
@@ -71,6 +81,8 @@ namespace ShoppingSysem.Components.Pages
             errorMessage = null;
             successMessage = null;
             selectedItemId = 0;
+            selectedVariantId = 0;
+            variants = new();
 
             var user = await GetCurrentShopkeeperAsync();
 
@@ -95,6 +107,21 @@ namespace ShoppingSysem.Components.Pages
                 .Where(i => i.ShopId == selectedShopId)
                 .OrderBy(i => i.Name)
                 .ToListAsync();
+        }
+
+        async Task LoadVariants()
+        {
+            errorMessage = null;
+            successMessage = null;
+            selectedVariantId = 0;
+
+            variants = selectedItemId > 0
+                ? await DbContext.ProductVariants
+                    .AsNoTracking()
+                    .Where(v => v.ItemId == selectedItemId && v.IsActive)
+                    .OrderBy(v => v.SKU)
+                    .ToListAsync()
+                : new();
         }
 
         async Task ConfirmSale()
@@ -167,9 +194,41 @@ namespace ShoppingSysem.Components.Pages
                 return;
             }
 
-            if (item.Price < 0 ||
-                item.Price > ValidationLimits.MaxPrice ||
-                decimal.Round(item.Price, 2) != item.Price)
+            // Products with active variants cannot be sold without choosing one.
+            var hasVariants = await DbContext.ProductVariants
+                .AnyAsync(v => v.ItemId == item.Id && v.IsActive);
+
+            ProductVariant? variant = null;
+
+            if (hasVariants)
+            {
+                if (selectedVariantId <= 0)
+                {
+                    await tx.RollbackAsync();
+                    errorMessage = "Please select an option.";
+                    return;
+                }
+
+                variant = await DbContext.ProductVariants
+                    .AsNoTracking()
+                    .FirstOrDefaultAsync(v =>
+                        v.Id == selectedVariantId &&
+                        v.ItemId == item.Id &&
+                        v.IsActive);
+
+                if (variant is null)
+                {
+                    await tx.RollbackAsync();
+                    errorMessage = "That option is not available.";
+                    return;
+                }
+            }
+
+            var unitPrice = variant?.Price ?? item.Price;
+
+            if (unitPrice < 0 ||
+                unitPrice > ValidationLimits.MaxPrice ||
+                decimal.Round(unitPrice, 2) != unitPrice)
             {
                 await tx.RollbackAsync();
                 errorMessage = "This item has an invalid price and cannot be sold.";
@@ -180,7 +239,7 @@ namespace ShoppingSysem.Components.Pages
 
             try
             {
-                totalPrice = checked(item.Price * qty);
+                totalPrice = checked(unitPrice * qty);
             }
             catch (OverflowException)
             {
@@ -189,24 +248,47 @@ namespace ShoppingSysem.Components.Pages
                 return;
             }
 
-            // Atomically decrement stock only if sufficient stock remains.
-            var updated = await DbContext.Items
-                .Where(i =>
-                    i.Id == item.Id &&
-                    i.ShopId == selectedShopId &&
-                    i.Stock >= qty)
-                .ExecuteUpdateAsync(setters =>
-                    setters.SetProperty(i => i.Stock, i => i.Stock - qty));
+            // Atomically decrement stock (variant-level when a variant is chosen,
+            // item-level otherwise) only if sufficient stock remains.
+            int updated;
+            if (variant is not null)
+            {
+                var variantId = variant.Id;
+                updated = await DbContext.ProductVariants
+                    .Where(v =>
+                        v.Id == variantId &&
+                        v.ItemId == item.Id &&
+                        v.IsActive &&
+                        v.Stock >= qty)
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(v => v.Stock, v => v.Stock - qty));
+            }
+            else
+            {
+                updated = await DbContext.Items
+                    .Where(i =>
+                        i.Id == item.Id &&
+                        i.ShopId == selectedShopId &&
+                        i.Stock >= qty)
+                    .ExecuteUpdateAsync(setters =>
+                        setters.SetProperty(i => i.Stock, i => i.Stock - qty));
+            }
 
             if (updated == 0)
             {
                 await tx.RollbackAsync();
 
-                var remainingStock = await DbContext.Items
-                    .AsNoTracking()
-                    .Where(i => i.Id == item.Id && i.ShopId == selectedShopId)
-                    .Select(i => (int?)i.Stock)
-                    .FirstOrDefaultAsync();
+                var remainingStock = variant is not null
+                    ? await DbContext.ProductVariants
+                        .AsNoTracking()
+                        .Where(v => v.Id == variant.Id)
+                        .Select(v => (int?)v.Stock)
+                        .FirstOrDefaultAsync()
+                    : await DbContext.Items
+                        .AsNoTracking()
+                        .Where(i => i.Id == item.Id && i.ShopId == selectedShopId)
+                        .Select(i => (int?)i.Stock)
+                        .FirstOrDefaultAsync();
 
                 errorMessage = remainingStock is null
                     ? "The selected item no longer exists."
@@ -215,9 +297,13 @@ namespace ShoppingSysem.Components.Pages
                 return;
             }
 
+            var variantLabel = variant is null ? null : VariantDisplay(variant);
+
             var sale = new Sale
             {
                 ItemId = item.Id,
+                VariantId = variant?.Id,
+                VariantLabel = variantLabel,
                 QuantitySold = qty,
                 TotalPrice = totalPrice,
                 SaleDate = DateTime.UtcNow,
@@ -230,17 +316,18 @@ namespace ShoppingSysem.Components.Pages
 
             await tx.CommitAsync();
             Logger.LogInformation(
-                "Shopkeeper {ShopkeeperId} recorded sale {SaleId}: item {ItemId} x {Quantity}, shop {ShopId}.",
-                user.Id, sale.Id, item.Id, qty, item.ShopId);
+                "Shopkeeper {ShopkeeperId} recorded sale {SaleId}: item {ItemId} variant {VariantId} x {Quantity}, shop {ShopId}.",
+                user.Id, sale.Id, item.Id, variant?.Id, qty, item.ShopId);
 
             selectedItemId = 0;
+            selectedVariantId = 0;
             quantity = "";
 
             await LoadItems();
 
             // Set after LoadItems so the success message is not cleared by the reload.
             successMessage =
-                $"Sale recorded: {qty} x {item.Name} = Rs. {sale.TotalPrice:N2}";
+                $"Sale recorded: {qty} x {item.Name}{(variantLabel is null ? "" : $" ({variantLabel})")} = Rs. {sale.TotalPrice:N2}";
         }
     }
 }

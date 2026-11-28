@@ -1,29 +1,62 @@
+@using ShoppingSysem.Models
+
 <article class="piece">
+    @if (ImageUrl is not null)
+    {
+        <img src="@ImageUrl" alt="@Item.Name" width="300" height="300"
+             style="width:100%; height:auto; aspect-ratio:1/1; object-fit:cover;" />
+    }
     <span class="idx">@Index.ToString("00")</span>
     @if (Reason is not null)
     {
         <p class="reason">@Reason</p>
     }
     <h3>@Item.Name</h3>
-    <p class="meta">@(Item.Category ?? "General")</p>
+    <p class="meta">
+        @(Item.Brand is null ? "" : Item.Brand + " · ")@(Item.Category ?? "General")@(Item.Subcategory is null ? "" : " / " + Item.Subcategory)@(Item.Condition == ProductCondition.Used ? " · Used" : "")
+    </p>
     @if (!string.IsNullOrWhiteSpace(Item.ShortDescription))
     {
-        <p class="description-short">@Item.ShortDescription</p>
+        <p>@Item.ShortDescription</p>
     }
     @if (!string.IsNullOrWhiteSpace(Item.FullDescription))
     {
-        <details class="description-full">
-            <summary>Full description</summary>
-            <p>@Item.FullDescription</p>
+        <details>
+            <summary class="meta">Details</summary>
+            <p style="white-space:pre-line;">@Item.FullDescription</p>
         </details>
     }
-    <p class="figure">Rs @Item.Price.ToString("N0")</p>
-    <p class="stock @(Item.Stock > 0 ? "in" : "out")">
-        @(Item.Stock > 0 ? $"{Item.Stock} in stock" : "Out of stock")
+    @if (Item.Attributes.Count > 0)
+    {
+        <details>
+            <summary class="meta">Specifications</summary>
+            <ul class="meta">
+                @foreach (var spec in Item.Attributes.OrderBy(a => a.Name))
+                {
+                    <li>@spec.Name: @spec.Value</li>
+                }
+            </ul>
+        </details>
+    }
+    @if (HasVariants)
+    {
+        <select class="form-control" @bind="selectedVariantId">
+            <option value="0">Choose an option</option>
+            @foreach (var variant in Item.Variants.OrderBy(v => v.Price))
+            {
+                <option value="@variant.Id" disabled="@(variant.Stock <= 0)">
+                    @VariantLabel(variant) · Rs @variant.Price.ToString("N0") · @(variant.Stock > 0 ? $"{variant.Stock} in stock" : "Out of stock")
+                </option>
+            }
+        </select>
+    }
+    <p class="figure">@(HasVariants && Selected is null ? "From " : "")Rs @DisplayPrice.ToString("N0")</p>
+    <p class="stock @(DisplayStock > 0 ? "in" : "out")">
+        @(DisplayStock > 0 ? $"{DisplayStock} in stock" : "Out of stock")
     </p>
     <div class="piece-actions">
         <button class="btn btn-outline-secondary" @onclick="View">View</button>
         <button class="btn btn-outline-danger" @onclick="Save">Save</button>
-        <button class="btn-buy" disabled="@(Busy || Item.Stock <= 0)" @onclick="Buy">Buy</button>
+        <button class="btn-buy" disabled="@(!CanBuy)" @onclick="Buy">Buy</button>
     </div>
 </article>

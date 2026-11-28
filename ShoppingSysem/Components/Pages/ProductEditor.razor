@@ -1,0 +1,178 @@
+﻿@page "/shopkeeper/products/new"
+@page "/shopkeeper/products/{Id:int}"
+@attribute [Authorize(Roles = AppRoles.Shopkeeper)]
+@rendermode InteractiveServer
+@using ShoppingSysem.Models
+
+<PageTitle>@(current is null ? "New product" : "Edit product")</PageTitle>
+
+<header class="mast">
+    <p class="kicker">Catalogue</p>
+    <h1>@(current is null ? "New product." : "Edit product.")</h1>
+    @if (current is not null)
+    {
+        <p class="dek">
+            Status: <span class="status @StatusClass">@StatusLabel</span>
+            @if (!string.IsNullOrEmpty(current.RejectionReason))
+            {
+                <br /><span>Rejected: @current.RejectionReason</span>
+            }
+        </p>
+    }
+</header>
+
+<p><a href="/shopkeeper/products">&larr; Back to my products</a></p>
+
+@if (!string.IsNullOrEmpty(message))
+{
+    <div class="alert @(messageIsError ? "alert-danger" : "alert-success")">@message</div>
+}
+
+@if (notFound)
+{
+    <p class="text-muted">Product not found.</p>
+}
+else
+{
+    <EditForm Model="input" OnSubmit="Save">
+        @if (current is null)
+        {
+            <div class="mb-3" style="max-width:360px;">
+                <label>Shop</label>
+                <select class="form-control" @bind="shopId">
+                    <option value="0">-- Select a shop --</option>
+                    @foreach (var shop in shops)
+                    {
+                        <option value="@shop.Id">@shop.Name</option>
+                    }
+                </select>
+            </div>
+        }
+
+        <h3>Details</h3>
+        <div class="mb-3" style="max-width:520px;">
+            <label>Title</label>
+            <InputText class="form-control" @bind-Value="input.Name" />
+            <label class="mt-2">SKU (unique in this shop)</label>
+            <InputText class="form-control" @bind-Value="input.SKU" />
+            <label class="mt-2">Brand</label>
+            <InputText class="form-control" @bind-Value="input.Brand" />
+            <label class="mt-2">Category</label>
+            <InputText class="form-control" @bind-Value="input.Category" />
+            <label class="mt-2">Subcategory</label>
+            <InputText class="form-control" @bind-Value="input.Subcategory" />
+            <label class="mt-2">Condition</label>
+            <InputSelect class="form-control" @bind-Value="input.Condition">
+                <option value="@ProductCondition.New">New</option>
+                <option value="@ProductCondition.Used">Used</option>
+            </InputSelect>
+            <label class="mt-2">Short description</label>
+            <InputText class="form-control" @bind-Value="input.ShortDescription" />
+            <label class="mt-2">Full description</label>
+            <InputTextArea class="form-control" rows="5" @bind-Value="input.FullDescription" />
+        </div>
+
+        <h3>Price and stock</h3>
+        <div class="mb-3" style="max-width:520px;">
+            <label>Price (Rs.)</label>
+            <InputNumber class="form-control" @bind-Value="input.Price" />
+            <label class="mt-2">Stock</label>
+            <InputNumber class="form-control" @bind-Value="input.Stock" />
+            <p class="meta mt-2">Orders currently use this base price and stock. Variant prices and stock are stored for the catalogue.</p>
+        </div>
+
+        <h3>Delivery</h3>
+        <div class="mb-3" style="max-width:520px;">
+            <label>Weight (grams)</label>
+            <InputNumber class="form-control" @bind-Value="input.WeightGrams" />
+            <label class="mt-2">Length (cm)</label>
+            <InputNumber class="form-control" @bind-Value="input.LengthCm" />
+            <label class="mt-2">Width (cm)</label>
+            <InputNumber class="form-control" @bind-Value="input.WidthCm" />
+            <label class="mt-2">Height (cm)</label>
+            <InputNumber class="form-control" @bind-Value="input.HeightCm" />
+        </div>
+
+        <h3>Specifications</h3>
+        <table class="table">
+            <thead>
+                <tr><th>Name</th><th>Value</th><th></th></tr>
+            </thead>
+            <tbody>
+                @foreach (var attribute in input.Attributes)
+                {
+                    <tr>
+                        <td><InputText class="form-control" @bind-Value="attribute.Name" /></td>
+                        <td><InputText class="form-control" @bind-Value="attribute.Value" /></td>
+                        <td><button type="button" class="btn btn-sm btn-secondary" @onclick="() => RemoveAttribute(attribute)">Remove</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p><button type="button" class="btn btn-sm btn-secondary" @onclick="AddAttribute">Add specification</button></p>
+
+        <h3>Variants</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>SKU</th><th>Size</th><th>Colour</th><th>Model</th><th>Material</th>
+                    <th>Price</th><th>Stock</th><th>Active</th><th></th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var variant in input.Variants)
+                {
+                    <tr>
+                        <td><InputText class="form-control" @bind-Value="variant.SKU" /></td>
+                        <td><InputText class="form-control" @bind-Value="variant.Size" /></td>
+                        <td><InputText class="form-control" @bind-Value="variant.Colour" /></td>
+                        <td><InputText class="form-control" @bind-Value="variant.Model" /></td>
+                        <td><InputText class="form-control" @bind-Value="variant.Material" /></td>
+                        <td><InputNumber class="form-control" @bind-Value="variant.Price" /></td>
+                        <td><InputNumber class="form-control" @bind-Value="variant.Stock" /></td>
+                        <td><InputCheckbox @bind-Value="variant.IsActive" /></td>
+                        <td><button type="button" class="btn btn-sm btn-secondary" @onclick="() => RemoveVariant(variant)">Remove</button></td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+        <p><button type="button" class="btn btn-sm btn-secondary" @onclick="AddVariant">Add variant</button></p>
+
+        <p>
+            <button type="submit" class="btn btn-primary" disabled="@busy">Save</button>
+            @if (CanSubmit)
+            {
+                <button type="button" class="btn btn-success" disabled="@busy" @onclick="SubmitForApproval">Submit for approval</button>
+            }
+        </p>
+    </EditForm>
+
+    @if (current is not null)
+    {
+        <h3>Images</h3>
+        <p class="meta">JPEG, PNG or WebP, 300 to 6000 px per side, up to 5 MB each, at most @ProductLimits.MaxImagesPerProduct images.</p>
+        <InputFile OnChange="Upload" accept="image/jpeg,image/png,image/webp" multiple disabled="@busy" />
+
+        @if (images.Count == 0)
+        {
+            <p class="text-muted">No images yet.</p>
+        }
+        else
+        {
+            <div style="display:flex; flex-wrap:wrap; gap:1.2rem; margin-top:1rem;">
+                @foreach (var image in images)
+                {
+                    <div style="width:170px;">
+                        <img src="@ImageUrl(image)" alt="Product image" width="170" height="170" style="object-fit:cover;" />
+                        <p class="meta">@(image.IsPrimary ? "Primary image" : "")</p>
+                        @if (!image.IsPrimary)
+                        {
+                            <button type="button" class="btn btn-sm btn-secondary" disabled="@busy" @onclick="() => MakePrimary(image.Id)">Make primary</button>
+                        }
+                        <button type="button" class="btn btn-sm btn-danger" disabled="@busy" @onclick="() => DeleteImage(image.Id)">Delete</button>
+                    </div>
+                }
+            </div>
+        }
+    }
+}

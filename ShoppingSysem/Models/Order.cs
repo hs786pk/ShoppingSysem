@@ -22,6 +22,14 @@ namespace ShoppingSysem.Models
         public int ItemId { get; set; }
         public Item Item { get; set; } = null!;
 
+        // Optional: set when the customer bought a specific variant.
+        public int? VariantId { get; set; }
+        public ProductVariant? Variant { get; set; }
+
+        // Snapshot such as "Large / Red", kept even if the variant changes later.
+        [MaxLength(300)]
+        public string? VariantLabel { get; set; }
+
         [Required]
         public int ShopId { get; set; }
         public Shop Shop { get; set; } = null!;

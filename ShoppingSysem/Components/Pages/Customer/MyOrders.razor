@@ -45,7 +45,13 @@ else
                 <tr>
                     <td>@order.OrderedAt.ToLocalTime().ToString("g")</td>
                     <td>@order.Shop.Name</td>
-                    <td>@order.Item.Name</td>
+                    <td>
+                        @order.Item.Name
+                        @if (!string.IsNullOrEmpty(order.VariantLabel))
+                        {
+                            <br /><small class="text-muted">@order.VariantLabel</small>
+                        }
+                    </td>
                     <td>@order.Quantity</td>
                     <td>Rs. @order.TotalPrice.ToString("N0")</td>
                     <td><span class="status status-@order.Status.ToString().ToLowerInvariant()">@order.Status</span></td>
@@ -60,4 +66,3 @@ else
         </tbody>
     </table>
 }
-

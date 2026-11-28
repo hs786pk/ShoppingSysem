@@ -55,8 +55,14 @@ namespace ShoppingSysem.Components.Pages.Customer
             // Soft catalog cap keeps the buyer page responsive as inventory grows.
             const int maxCatalogItems = 1000;
 
+            // Customers only ever see approved, active products.
             allItems = await Db.Items
                 .AsNoTracking()
+                .Where(i => i.Status == ProductStatus.Active)
+                .Include(i => i.Images.Where(p => p.IsPrimary))
+                .Include(i => i.Variants.Where(v => v.IsActive))
+                .Include(i => i.Attributes)
+                .AsSplitQuery()
                 .OrderBy(i => i.Name)
                 .Take(maxCatalogItems)
                 .ToListAsync();
@@ -77,7 +83,7 @@ namespace ShoppingSysem.Components.Pages.Customer
 
         private Task RecordSave(Item item) => Act(item, InteractionType.Wishlist);
 
-        private Task PlaceOrder(Item item) => Buy(item);
+        private Task PlaceOrder(BuyRequest request) => Buy(request);
 
         private async Task Act(Item item, InteractionType type)
         {
@@ -103,14 +109,15 @@ namespace ShoppingSysem.Components.Pages.Customer
             }
         }
 
-        private async Task Buy(Item item)
+        // Stock, price and the variant are all re-checked by OrderService.
+        private async Task Buy(BuyRequest request)
         {
-            if (busy || string.IsNullOrEmpty(userId) || item.Id <= 0 || item.Stock <= 0) return;
+            if (busy || string.IsNullOrEmpty(userId) || request.Item.Id <= 0) return;
 
             busy = true;
             try
             {
-                var result = await Orders.PlaceAsync(userId, item.Id, 1);
+                var result = await Orders.PlaceAsync(userId, request.Item.Id, 1, request.VariantId);
                 message = result.Message;
                 messageIsError = !result.Ok;
 

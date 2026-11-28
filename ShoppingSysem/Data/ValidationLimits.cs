@@ -8,8 +8,10 @@
 public static class ValidationLimits
 {
     public const int ItemNameMaxLength = 100;
-    public const int ItemDescriptionMaxLength = 1000;
     public const int CategoryMaxLength = 100;
+    public const int SkuMaxLength = 64;
+    public const int BrandMaxLength = 100;
+    public const int ShortDescriptionMaxLength = 300;
     public const int ShopNameMaxLength = 100;
     public const int ShopLocationMaxLength = 200;
 
@@ -19,4 +21,11 @@ public static class ValidationLimits
 
     public const int MinPasswordLength = 12;
     public const int MaxEmailLength = 256;
+
+    // Product images.
+    public const int MaxImageBytes = 5 * 1024 * 1024;
+    public const int MinImageDimension = 300;
+    public const int MaxImageDimension = 6000;
+    public const int ImageMaxSide = 1600;
+    public const int ThumbnailMaxSide = 300;
 }

@@ -10,8 +10,13 @@ using ShoppingSysem.Data;
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Threading.RateLimiting;
+using Microsoft.Extensions.FileProviders;
+using ShoppingSysem.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped<IProductImageService, ProductImageService>();
+builder.Services.AddScoped<IProductService, ProductService>();
 
 // Add services to the container.
 builder.Services.AddRazorComponents()
@@ -380,6 +385,23 @@ else
 }
 app.UseStatusCodePagesWithReExecute("/not-found");
 app.UseHttpsRedirection();
+// Product images live outside wwwroot and are served from a fixed, read-only route.
+// Only server-generated .webp names exist there; unknown file types are never served.
+var imageRoot = ProductImageService.ResolveRoot(app.Configuration, app.Environment);
+Directory.CreateDirectory(imageRoot);
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new PhysicalFileProvider(imageRoot),
+    RequestPath = ProductImageService.RequestPath,
+    ServeUnknownFileTypes = false,
+    OnPrepareResponse = ctx =>
+    {
+        var headers = ctx.Context.Response.Headers;
+        headers.CacheControl = "public,max-age=86400";
+        headers["X-Content-Type-Options"] = "nosniff";
+        headers["Content-Security-Policy"] = "default-src 'none'; sandbox";
+    }
+});
 app.UseRouting();
 app.UseRateLimiter();
 

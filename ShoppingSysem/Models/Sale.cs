@@ -12,6 +12,13 @@ namespace ShoppingSysem.Models
         public int ItemId { get; set; }
         public Item Item { get; set; } = null!;
 
+        // Optional: set when a specific variant was sold at the counter.
+        public int? VariantId { get; set; }
+        public ProductVariant? Variant { get; set; }
+
+        [MaxLength(300)]
+        public string? VariantLabel { get; set; }
+
         [Range(1, ValidationLimits.MaxQuantityPerTransaction)]
         public int QuantitySold { get; set; }
 

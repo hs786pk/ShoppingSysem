@@ -23,12 +23,15 @@
 @if (selectedShopId != 0)
 {
     <div class="mb-3" style="max-width:400px;">
-        <input @bind="newItemName" placeholder="Item Name" class="form-control mb-2" />
+        <input @bind="newItemName" placeholder="Product title" class="form-control mb-2" />
+        <input @bind="newItemSku" placeholder="SKU (unique in this shop)" class="form-control mb-2" />
+        <input @bind="newItemBrand" placeholder="Brand" class="form-control mb-2" />
+        <input @bind="newItemShortDescription" placeholder="Short customer-friendly description" class="form-control mb-2" />
+        <textarea @bind="newItemFullDescription" placeholder="Full product description" class="form-control mb-2" rows="3"></textarea>
         <input @bind="newItemPrice" placeholder="Price" class="form-control mb-2" />
         <input @bind="newItemStock" placeholder="Stock" class="form-control mb-2" />
         <input @bind="newItemCategory" placeholder="Category (e.g. Shoes, Electronics)" list="category-list" class="form-control mb-2" />
-        <textarea @bind="newItemShortDescription" maxlength="250" placeholder="Short description (max 250 characters)" class="form-control mb-2" rows="2"></textarea>
-        <textarea @bind="newItemFullDescription" maxlength="5000" placeholder="Full product description (max 5000 characters)" class="form-control mb-2" rows="4"></textarea>
+        <input @bind="newItemSubcategory" placeholder="Subcategory (e.g. Running Shoes)" class="form-control mb-2" />
         <datalist id="category-list">
             @foreach (var c in categorySuggestions)
             {
@@ -47,12 +50,13 @@
         <thead>
             <tr>
                 <th>Id</th>
-                <th>Name</th>
+                <th>Product title</th>
+                <th>SKU</th>
+                <th>Brand</th>
+                <th>Descriptions</th>
                 <th>Price</th>
                 <th>Stock</th>
                 <th>Category</th>
-                <th>Short description</th>
-                <th>Full description</th>
                 <th></th>
             </tr>
         </thead>
@@ -62,6 +66,9 @@
                 <tr>
                     <td>@item.Id</td>
                     <td>@item.Name</td>
+                    <td><input @bind="item.SKU" class="form-control" style="width:130px;" /></td>
+                    <td><input @bind="item.Brand" class="form-control" style="width:130px;" /></td>
+                    <td style="min-width:240px;"><input @bind="item.ShortDescription" placeholder="Short description" class="form-control mb-1" /><textarea @bind="item.FullDescription" placeholder="Full description" class="form-control" rows="2"></textarea></td>
                     <td>
                         <input @bind="item.Price" class="form-control" style="width:100px;" />
                     </td>
@@ -69,13 +76,7 @@
                         <input @bind="item.Stock" class="form-control" style="width:80px;" />
                     </td>
                     <td>
-                        <input @bind="item.Category" list="category-list" class="form-control" style="width:160px;" />
-                    </td>
-                    <td>
-                        <textarea @bind="item.ShortDescription" maxlength="250" class="form-control" style="min-width:220px;" rows="2"></textarea>
-                    </td>
-                    <td>
-                        <textarea @bind="item.FullDescription" maxlength="5000" class="form-control" style="min-width:280px;" rows="3"></textarea>
+                        <div style="min-width:150px;"><input @bind="item.Category" list="category-list" placeholder="Category" class="form-control mb-1" /><input @bind="item.Subcategory" placeholder="Subcategory" class="form-control" /></div>
                     </td>
                     <td>
                         <div style="display:flex; gap:0.5rem;">
